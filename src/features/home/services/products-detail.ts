@@ -3,6 +3,9 @@
 import { ProductDetailResponse } from "../types/detail"
 
 class ProductService {
+  getCategories() {
+      throw new Error('Method not implemented.')
+  }
   private baseURL: string
 
   constructor() {
