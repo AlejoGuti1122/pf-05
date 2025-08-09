@@ -15,11 +15,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, LogIn, Mail, Lock, AlertCircle } from "lucide-react"
 
 import { LoginFormValues } from "../../types/login"
-import { useRouter } from "next/navigation" // ✅ AGREGAR
+import { useRouter } from "next/navigation"
 import useAuth from "../../hooks/useLogin"
 
 interface LoginFormProps {
@@ -48,22 +47,21 @@ const LoginForm: React.FC<LoginFormProps> = ({
   onSwitchToRegister,
 }) => {
   const { login, loading, error, isAuthenticated, clearError } = useAuth()
-  const router = useRouter() // ✅ AGREGAR
+  const router = useRouter()
 
   // Limpiar errores al montar
   useEffect(() => {
     clearError()
   }, [clearError])
 
-  // ✅ MEJORAR: Redirigir si ya está autenticado
+  // Redirigir si ya está autenticado
   useEffect(() => {
     console.log("🔍 isAuthenticated changed:", isAuthenticated)
-    
+
     if (isAuthenticated) {
       console.log("🎉 Usuario autenticado, redirigiendo a /home...")
       router.push("/home")
-      
-      // También ejecutar callback si existe
+
       if (onSuccess) {
         onSuccess()
       }
@@ -76,7 +74,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
   ) => {
     try {
       console.log("🔐 Intentando login con:", values.email)
-      
+
       const result = await login({
         email: values.email.toLowerCase().trim(),
         password: values.password,
@@ -84,13 +82,13 @@ const LoginForm: React.FC<LoginFormProps> = ({
 
       console.log("✅ Login exitoso!", result)
       console.log("🔍 isAuthenticated después del login:", isAuthenticated)
-      
-      // ✅ REDIRECCIÓN MANUAL como backup
+
       if (!isAuthenticated) {
-        console.log("⚠️ isAuthenticated aún es false, redirigiendo manualmente...")
+        console.log(
+          "⚠️ isAuthenticated aún es false, redirigiendo manualmente..."
+        )
         router.push("/home")
       }
-      
     } catch (err) {
       console.error("❌ Login error:", err)
     } finally {
@@ -100,38 +98,42 @@ const LoginForm: React.FC<LoginFormProps> = ({
 
   return (
     <div className="max-w-md mx-auto">
-      <Card className="shadow-lg">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <LogIn className="h-8 w-8 text-blue-600" />
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Iniciar Sesión
+      {/* Card limpio y moderno */}
+      <Card className="bg-white border-0 shadow-2xl rounded-2xl overflow-hidden">
+        {/* Borde superior rojo elegante */}
+        <div className="h-1 bg-gradient-to-r from-red-500 via-red-600 to-red-500" />
+
+        <CardHeader className="text-center py-8 bg-white">
+          {/* Logo moderno */}
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-red-500 rounded-full blur-md opacity-20" />
+              <div className="relative w-12 h-12 bg-black rounded-full flex items-center justify-center">
+                <LogIn className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <CardTitle className="text-4xl font-black tracking-tight bg-gradient-to-r from-black via-red-600 to-black bg-clip-text text-transparent">
+              AutoParts
             </CardTitle>
           </div>
-          <CardDescription className="text-lg">
-            Accede a tu cuenta de administrador
+          <CardDescription className="text-gray-600 font-medium text-lg">
+            Portal de Administración
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
-          {/* Credenciales de prueba */}
-          <Alert className="mb-6 border-blue-200 bg-blue-50">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              <strong>Credenciales de prueba:</strong>
-              <br />
-              Email: admin@example.com | Contraseña: Admin123!
-            </AlertDescription>
-          </Alert>
+        <CardContent className="p-8 bg-gray-50/30">
+          {/* Credenciales - Card minimalista */}
 
-          {/* Alerta de error */}
+          {/* Error - Diseño limpio */}
           {error && (
-            <Alert className="mb-6 border-red-200 bg-red-50">
-              <AlertCircle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">
-                {error}
-              </AlertDescription>
-            </Alert>
+            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                <span className="text-red-700 font-medium text-sm">
+                  {error}
+                </span>
+              </div>
+            </div>
           )}
 
           <Formik
@@ -150,101 +152,112 @@ const LoginForm: React.FC<LoginFormProps> = ({
               dirty,
             }) => (
               <Form className="space-y-6">
-                {/* Email */}
+                {/* Email - Input moderno */}
                 <div className="space-y-2">
                   <Label
                     htmlFor="email"
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 text-gray-800 font-semibold text-sm"
                   >
-                    <Mail className="h-4 w-4" />
-                    Email *
+                    <Mail className="h-4 w-4 text-red-600" />
+                    Email
                   </Label>
                   <Input
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="admin@example.com"
+                    placeholder="Ingresa tu email"
                     value={values.email}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    className={
-                      touched.email && errors.email ? "border-red-500" : ""
-                    }
+                    className={`h-12 bg-white border-2 border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all duration-200 ${
+                      touched.email && errors.email
+                        ? "border-red-500 bg-red-50"
+                        : ""
+                    }`}
                     disabled={loading}
                   />
                   <ErrorMessage
                     name="email"
                     component="p"
-                    className="text-sm text-red-500"
+                    className="text-xs text-red-600 font-medium ml-1"
                   />
                 </div>
 
-                {/* Contraseña */}
+                {/* Contraseña - Input moderno */}
                 <div className="space-y-2">
                   <Label
                     htmlFor="password"
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 text-gray-800 font-semibold text-sm"
                   >
-                    <Lock className="h-4 w-4" />
-                    Contraseña *
+                    <Lock className="h-4 w-4 text-red-600" />
+                    Contraseña
                   </Label>
                   <Input
                     id="password"
                     name="password"
                     type="password"
-                    placeholder="••••••••"
+                    placeholder="Ingresa tu contraseña"
                     value={values.password}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    className={
+                    className={`h-12 bg-white border-2 border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all duration-200 ${
                       touched.password && errors.password
-                        ? "border-red-500"
+                        ? "border-red-500 bg-red-50"
                         : ""
-                    }
+                    }`}
                     disabled={loading}
                   />
                   <ErrorMessage
                     name="password"
                     component="p"
-                    className="text-sm text-red-500"
+                    className="text-xs text-red-600 font-medium ml-1"
                   />
                 </div>
 
-                {/* Botón de login */}
+                {/* Botón premium */}
                 <Button
                   type="submit"
                   disabled={loading || isSubmitting || !isValid || !dirty}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  className="relative w-full h-12 bg-black hover:bg-gray-800 text-white font-bold rounded-xl transition-all duration-300 overflow-hidden group disabled:opacity-50 shadow-lg hover:shadow-xl"
                 >
-                  {loading || isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Iniciando sesión...
-                    </>
-                  ) : (
-                    <>
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Iniciar Sesión
-                    </>
-                  )}
+                  {/* Efecto hover sutil */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-600/20 to-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    {loading || isSubmitting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Iniciando sesión...
+                      </>
+                    ) : (
+                      <>
+                        <LogIn className="h-5 w-5" />
+                        Iniciar Sesión
+                      </>
+                    )}
+                  </span>
                 </Button>
 
-                {/* Link para registrarse */}
-                {onSwitchToRegister && (
-                  <div className="text-center pt-4">
-                    <p className="text-sm text-gray-600">
-                      ¿No tienes cuenta?{" "}
-                      <button
-                        type="button"
-                        onClick={onSwitchToRegister}
-                        className="text-blue-600 hover:text-blue-800 font-medium"
-                        disabled={loading}
-                      >
-                        Regístrate aquí
-                      </button>
-                    </p>
-                  </div>
-                )}
+                {/* Link sutil y minimalista */}
+                <div className="text-center pt-4">
+                  <p className="text-sm text-gray-500">
+                    ¿No tienes cuenta?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onSwitchToRegister) {
+                          onSwitchToRegister()
+                        } else {
+                          window.location.href = "/register"
+                        }
+                      }}
+                      className="cursor-pointer text-red-600 hover:text-red-700 font-medium transition-colors duration-200 hover:underline"
+                      disabled={loading}
+                    >
+                      Regístrate aquí
+                    </button>
+                  </p>
+                </div>
               </Form>
             )}
           </Formik>

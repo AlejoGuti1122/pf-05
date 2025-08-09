@@ -136,7 +136,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           disabled={!isInStock}
           className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
             isInStock
-              ? "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800"
+              ? "bg-red-500 text-white hover:bg-blue-700 active:bg-blue-800"
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
           }`}
         >
