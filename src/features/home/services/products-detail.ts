@@ -3,14 +3,10 @@
 import { ProductDetailResponse } from "../types/detail"
 
 class ProductService {
-  getCategories() {
-      throw new Error('Method not implemented.')
-  }
   private baseURL: string
 
   constructor() {
-    // Usar el proxy de Next.js - NO más CORS issues!
-    this.baseURL = "/api"
+    this.baseURL = "http://localhost:3001" // ✅ CORREGIR URL
   }
 
   async getProductDetail(id: string): Promise<ProductDetailResponse> {
@@ -25,6 +21,16 @@ class ProductService {
     const data = await response.json()
 
     return data
+  }
+
+  async getCategories() {
+    const response = await fetch(`${this.baseURL}/categories`)
+    
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    return response.json()
   }
 }
 

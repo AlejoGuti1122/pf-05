@@ -5,12 +5,12 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/:path*',
+        destination: 'http://localhost:3001/api/:path*', // ← AGREGAR /api
       },
     ];
   },
   images: {
-    unoptimized: true, // Desactiva la optimización de imágenes
+    unoptimized: true,
   },
 };
 

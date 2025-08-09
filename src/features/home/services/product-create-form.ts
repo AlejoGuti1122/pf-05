@@ -2,7 +2,7 @@
 import { ProductDetailResponse } from "../types/detail"
 import {
   CreateProductResponse,
-  CreateProductRequest, // ← CAMBIO: Importar de product-form
+  CreateProductRequest,
   Category,
 } from "../types/product-form"
 
@@ -10,7 +10,7 @@ class ProductService {
   private baseURL: string
 
   constructor() {
-    this.baseURL = "/api"
+    this.baseURL = "http://localhost:3001" // ✅ CORREGIR URL
   }
 
   async getProductDetail(id: string): Promise<ProductDetailResponse> {
@@ -26,7 +26,7 @@ class ProductService {
   async createProduct(
     productData: CreateProductRequest
   ): Promise<CreateProductResponse> {
-    const response = await fetch("/api/products", {
+    const response = await fetch(`${this.baseURL}/products`, { // ✅ CORREGIR URL
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(productData),

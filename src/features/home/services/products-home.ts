@@ -1,12 +1,12 @@
 // services/productsService.ts
-
 import Product, {
   ProductWithId,
   CreateProductRequest,
   UpdateProductRequest,
 } from "../types/products"
 
-const API_BASE_URL = "/api"
+// ✅ CORREGIDO: Sin /api al final
+const API_BASE_URL = "http://localhost:3001"
 
 class ProductsService {
   private async request<T>(
@@ -37,7 +37,7 @@ class ProductsService {
 
   // Obtener todos los productos
   getAllProducts(): Promise<Product[]> {
-    return this.request<Product[]>("/products")
+    return this.request<Product[]>("/products")  // ✅ Sin /api
   }
 
   // Obtener producto por ID
