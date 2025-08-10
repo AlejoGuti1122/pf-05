@@ -12,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -59,9 +58,6 @@ const validationSchema = Yup.object({
       return !isNaN(num) && num >= 0
     }),
 
-  // ✅ YA NO ES REQUERIDA LA URL PORQUE SUBIMOS ARCHIVO
-  imgUrl: Yup.string().optional(),
-
   year: Yup.string()
     .matches(/^\d{4}$/, "Debe ser un año válido (4 dígitos)")
     .test("year-range", "El año debe ser mayor a 1900", function (value) {
@@ -94,7 +90,7 @@ const initialValues: ProductFormClean = {
   name: "",
   price: "",
   stock: "",
-  imgUrl: "", // ✅ Mantener por compatibilidad pero no mostrar en form
+  imgUrl: "",
   year: "",
   brand: "",
   model: "",
@@ -103,6 +99,7 @@ const initialValues: ProductFormClean = {
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
+  
   const router = useRouter()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -176,19 +173,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
         throw new Error("Debes seleccionar una imagen del producto")
       }
 
-      // ✅ DEBUG: Ver cada valor antes de convertir
-      console.log(
-        "🔍 DEBUG - price raw:",
-        `"${values.price}"`,
-        typeof values.price
-      )
-      console.log(
-        "🔍 DEBUG - stock raw:",
-        `"${values.stock}"`,
-        typeof values.stock
-      )
-      console.log("🔍 DEBUG - file:", selectedFile.name, selectedFile.size)
-
       // ✅ VALIDAR Y CONVERTIR VALORES ANTES DE ENVIAR
       const price = parseFloat(values.price)
       const stock = parseInt(values.stock)
@@ -213,29 +197,17 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
       formData.append("model", values.model.trim())
       formData.append("engine", values.engine.trim())
       formData.append("categoryId", values.categoryId)
-      formData.append("file", selectedFile) // ✅ EL ARCHIVO
-
-      console.log("🎯 Form Clean - Sending FormData")
-      console.log(
-        "🔍 File info:",
-        selectedFile.name,
-        selectedFile.type,
-        selectedFile.size
-      )
+      formData.append("file", selectedFile)
 
       const result = await createProduct(formData as any)
-
-      console.log("✅ Producto creado, iniciando redirección...")
 
       // Reset form y archivo después de éxito
       resetForm()
       removeFile()
 
-      // ✅ REDIRECCIÓN DIRECTA AQUÍ
       setTimeout(() => {
-        console.log("🔄 Redirigiendo a /home...")
         router.push("/home")
-      }, 1000) // 1 segundo para ver el mensaje de éxito
+      }, 1000)
 
       if (onSuccess) {
         onSuccess(result.id)
@@ -246,47 +218,65 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Card className="shadow-lg">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Package className="h-8 w-8 text-blue-600" />
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Crear Nuevo Producto
+    <div className="max-w-4xl mx-auto">
+      {/* ✅ Card con el mismo estilo que login */}
+      <Card className="bg-white border-0 shadow-2xl rounded-2xl overflow-hidden">
+        {/* ✅ Borde superior rojo igual que login */}
+        <div className="h-1 bg-gradient-to-r from-red-500 via-red-600 to-red-500" />
+
+        {/* ✅ Header igual que login */}
+        <CardHeader className="text-center py-8 bg-white">
+          {/* ✅ Logo moderno igual que login */}
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-red-500 rounded-full blur-md opacity-20" />
+              <div className="relative w-12 h-12 bg-black rounded-full flex items-center justify-center">
+                <Package className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <CardTitle className="text-4xl font-black tracking-tight bg-gradient-to-r from-black via-red-600 to-black bg-clip-text text-transparent">
+              AutoParts
             </CardTitle>
           </div>
-          <CardDescription className="text-lg">
-            Agrega un nuevo repuesto a tu catálogo con imagen
+          <CardDescription className="text-gray-600 font-medium text-lg">
+            Crear Nuevo Producto
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
-          {/* Alertas de estado */}
+        {/* ✅ Content con el mismo fondo que login */}
+        <CardContent className="p-8 bg-gray-50/30">
+          {/* ✅ Error con el mismo diseño que login */}
           {success && (
-            <Alert className="mb-6 border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                ¡Producto creado exitosamente! 🎉 Redirigiendo a inicio...
-              </AlertDescription>
-            </Alert>
+            <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 rounded-r-xl">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                <span className="text-green-700 font-medium text-sm">
+                  ¡Producto creado exitosamente! 🎉 Redirigiendo a inicio...
+                </span>
+              </div>
+            </div>
           )}
 
           {error && (
-            <Alert className="mb-6 border-red-200 bg-red-50">
-              <AlertCircle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">
-                {error}
-              </AlertDescription>
-            </Alert>
+            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                <span className="text-red-700 font-medium text-sm">
+                  {error}
+                </span>
+              </div>
+            </div>
           )}
 
           {categoriesError && (
-            <Alert className="mb-6 border-yellow-200 bg-yellow-50">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800">
-                Error al cargar categorías: {categoriesError}
-              </AlertDescription>
-            </Alert>
+            <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-xl">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+                <span className="text-yellow-700 font-medium text-sm">
+                  Error al cargar categorías: {categoriesError}
+                </span>
+              </div>
+            </div>
           )}
 
           <Formik
@@ -305,75 +295,72 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
               dirty,
             }) => (
               <Form className="space-y-6">
-                {/* ✅ SECCIÓN DE UPLOAD DE IMAGEN */}
-                <div className="space-y-4">
-                  <Label className="text-lg font-semibold flex items-center gap-2">
-                    <Upload className="h-5 w-5 text-blue-600" />
+                {/* ✅ Upload de imagen con estilo login */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-gray-800 font-semibold text-sm">
+                    <Upload className="h-4 w-4 text-red-600" />
                     Imagen del Producto *
                   </Label>
 
                   {!selectedFile ? (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                      <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <div className="space-y-2">
-                        <p className="text-gray-600">
-                          Selecciona una imagen del producto
-                        </p>
-                        <p className="text-sm text-gray-400">
-                          PNG, JPG, JPEG hasta 5MB
-                        </p>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          className="hidden"
-                          id="file-upload"
-                        />
-                        <Label
-                          htmlFor="file-upload"
-                          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors"
-                        >
-                          Elegir Archivo
-                        </Label>
-                      </div>
+                    <div className="h-32 bg-white border-2 border-dashed border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 hover:border-red-500 transition-all duration-200 flex flex-col items-center justify-center">
+                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                      <p className="text-gray-600 text-sm mb-1">
+                        Selecciona una imagen
+                      </p>
+                      <p className="text-xs text-gray-400 mb-3">
+                        PNG, JPG, JPEG hasta 5MB
+                      </p>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        id="file-upload"
+                        disabled={loading}
+                      />
+                      <Label
+                        htmlFor="file-upload"
+                        className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 cursor-pointer transition-colors"
+                      >
+                        Elegir Archivo
+                      </Label>
                     </div>
                   ) : (
-                    <div className="border rounded-lg p-4 bg-gray-50">
-                      <div className="flex items-center justify-between mb-4">
+                    <div className="h-auto bg-white border-2 border-gray-200 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <Package className="h-5 w-5 text-green-600" />
+                          <Package className="h-4 w-4 text-green-600" />
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-gray-900 text-sm">
                               {selectedFile.name}
                             </p>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-xs text-gray-500">
                               {(selectedFile.size / (1024 * 1024)).toFixed(2)}{" "}
                               MB
                             </p>
                           </div>
                         </div>
-                        <Button
+                        <button
                           type="button"
-                          variant="outline"
-                          size="sm"
                           onClick={removeFile}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 hover:text-red-800 p-1"
                         >
                           <X className="h-4 w-4" />
-                        </Button>
+                        </button>
                       </div>
 
                       {preview && (
-                        <div className="mt-4">
-                          <p className="text-sm text-gray-600 mb-2">
+                        <div>
+                          <p className="text-xs text-gray-600 mb-2">
                             Vista previa:
                           </p>
                           <Image
                             src={preview}
                             alt="Preview"
-                            width={20}
-                            height={20}
-                            className="w-32 h-32 object-cover rounded-lg border border-b-black"
+                            width={80}
+                            height={80}
+                            className="w-20 h-20 object-cover rounded-lg border"
                           />
                         </div>
                       )}
@@ -381,7 +368,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                   )}
                 </div>
 
-                {/* Campos del formulario existentes */}
+                {/* ✅ Campos del formulario con estilo login */}
                 <ProductFormFields
                   values={values}
                   errors={errors}
@@ -393,40 +380,47 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                   loadingCategories={loadingCategories}
                 />
 
-                <div className="flex gap-4 pt-6">
-                  <Button
-                    type="submit"
-                    disabled={loading || !isValid || !dirty || !selectedFile}
-                    className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
-                  >
+                {/* ✅ Botón con el mismo estilo que login */}
+                <Button
+                  type="submit"
+                  disabled={loading || !isValid || !dirty || !selectedFile}
+                  className="relative w-full h-12 bg-black hover:bg-gray-800 text-white font-bold rounded-xl transition-all duration-300 overflow-hidden group disabled:opacity-50 shadow-lg hover:shadow-xl"
+                >
+                  {/* ✅ Efecto hover igual que login */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-600/20 to-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                  <span className="relative z-10 flex items-center justify-center gap-2">
                     {loading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creando...
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Creando producto...
                       </>
                     ) : (
                       <>
-                        <Package className="mr-2 h-4 w-4" />
+                        <Package className="h-5 w-5" />
                         Crear Producto
                       </>
                     )}
+                  </span>
+                </Button>
+
+                {/* ✅ Botón cancelar si existe */}
+                {onCancel && (
+                  <Button
+                    type="button"
+                    onClick={onCancel}
+                    disabled={loading}
+                    className="w-full h-12 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-xl transition-all duration-200"
+                  >
+                    Cancelar
                   </Button>
+                )}
 
-                  {onCancel && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={onCancel}
-                      disabled={loading}
-                      className="px-8"
-                    >
-                      Cancelar
-                    </Button>
-                  )}
-                </div>
-
-                <div className="text-center text-sm text-gray-500 pt-4 border-t">
-                  Los campos marcados con * son obligatorios
+                {/* ✅ Texto info igual que login */}
+                <div className="text-center pt-4">
+                  <p className="text-sm text-gray-500">
+                    Los campos marcados con * son obligatorios
+                  </p>
                 </div>
               </Form>
             )}

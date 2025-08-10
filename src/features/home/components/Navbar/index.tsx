@@ -1,8 +1,16 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useEffect } from "react"
-import { Menu, ShoppingCart, User, Zap, Star, LogOut } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import {
+  Menu,
+  ShoppingCart,
+  User,
+  Zap,
+  Star,
+  LogOut,
+  UserCircle,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -14,38 +22,49 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   motion,
-  AnimatePresence,
   useScroll,
   useTransform,
   Variants,
+  AnimatePresence,
 } from "framer-motion"
-import useAuth from "@/features/login/hooks/useAuth" // ✅ IMPORTAR HOOK
+import useAuth from "@/features/login/hooks/useAuth"
 
 const Navbar = () => {
   const [open, setOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
   const { scrollY } = useScroll()
   const headerY = useTransform(scrollY, [0, 100], [0, -10])
   const headerOpacity = useTransform(scrollY, [0, 100], [1, 0.95])
+  const userMenuRef = useRef<HTMLDivElement>(null)
 
-  // ✅ USAR HOOK DE AUTH
+  // Hook de auth
   const { user, logout, loading } = useAuth()
 
-  const navItems = [
-    { label: "Inicio", href: "/", icon: "🏠" },
-    { label: "Repuestos", href: "/repuestos", icon: "⚙️" },
-    { label: "Categorías", href: "/categorias", icon: "📂" },
-    { label: "Contacto", href: "/contacto", icon: "📞" },
-  ]
-
-  // ✅ FUNCIÓN PARA MANEJAR LOGOUT
+  // Función para manejar logout
   const handleLogout = async () => {
     try {
+      setShowUserMenu(false)
       await logout()
     } catch (error) {
       console.error("Error al cerrar sesión:", error)
     }
   }
+
+  // Cerrar menu de usuario al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowUserMenu(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   // Detectar scroll
   useEffect(() => {
@@ -121,6 +140,22 @@ const Navbar = () => {
       }}
     />
   )
+
+  // Dropdown variants
+  const dropdownVariants: Variants = {
+    hidden: {
+      opacity: 0,
+      scale: 0.95,
+      y: -10,
+      transition: { duration: 0.2 },
+    },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transition: { duration: 0.2 },
+    },
+  }
 
   return (
     <motion.header
@@ -241,64 +276,6 @@ const Navbar = () => {
           className="hidden md:flex space-x-6 items-center"
           variants={containerVariants}
         >
-          {navItems.map((item, index) => (
-            <motion.div
-              key={item.href}
-              variants={itemVariants}
-              whileHover="hover"
-              className="relative"
-            >
-              <Link
-                href={item.href}
-                className="group relative flex items-center space-x-2 px-4 py-2 rounded-xl"
-              >
-                {/* Fondo animado */}
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-red-600/0 to-red-600/0 rounded-xl"
-                  whileHover={{
-                    background:
-                      "linear-gradient(90deg, rgba(220,38,38,0.2), rgba(239,68,68,0.3))",
-                  }}
-                  transition={{ duration: 0.3 }}
-                />
-
-                {/* Ícono animado */}
-                <motion.span
-                  className="text-lg"
-                  whileHover={{ scale: 1.2, rotate: 10 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                >
-                  {item.icon}
-                </motion.span>
-
-                {/* Texto */}
-                <motion.span
-                  className="relative z-10 text-white font-medium"
-                  whileHover={{ color: "#fca5a5" }}
-                >
-                  {item.label}
-                </motion.span>
-
-                {/* Línea mágica */}
-                <motion.div
-                  className="absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-red-400 to-red-600 rounded-full"
-                  initial={{ width: 0 }}
-                  whileHover={{ width: "100%" }}
-                  transition={{ duration: 0.3 }}
-                />
-
-                {/* Efectos de partículas en hover */}
-                <motion.div
-                  className="absolute inset-0 pointer-events-none"
-                  whileHover={{
-                    background:
-                      "radial-gradient(circle, rgba(220,38,38,0.1) 0%, transparent 70%)",
-                  }}
-                />
-              </Link>
-            </motion.div>
-          ))}
-
           {/* Botón CREAR PRODUCTO épico */}
           <motion.div
             variants={itemVariants}
@@ -402,14 +379,18 @@ const Navbar = () => {
             </Link>
           </motion.div>
 
-          {/* ✅ SECCIÓN DE USUARIO CON LOGOUT */}
+          {/* SECCIÓN DE USUARIO CON DROPDOWN */}
           {user ? (
-            <div className="flex items-center space-x-3">
-              {/* Avatar */}
+            <div
+              className="relative"
+              ref={userMenuRef}
+            >
+              {/* Avatar clickeable */}
               <motion.div
                 variants={itemVariants}
                 whileHover={{ scale: 1.1 }}
-                className="relative"
+                className="relative cursor-pointer"
+                onClick={() => setShowUserMenu(!showUserMenu)}
               >
                 <motion.div
                   className="p-1 rounded-full bg-gradient-to-r from-red-500 to-red-700"
@@ -443,30 +424,61 @@ const Navbar = () => {
                 />
               </motion.div>
 
-              {/* ✅ BOTÓN LOGOUT ÉPICO */}
-              <motion.div
-                variants={itemVariants}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <motion.button
-                  onClick={handleLogout}
-                  disabled={loading}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-gray-600 to-gray-700 text-white font-medium border-2 border-gray-500 hover:border-gray-400 transition-all duration-300 shadow-lg disabled:opacity-50"
-                  whileHover={{
-                    boxShadow: "0 0 20px rgba(107,114,128,0.6)",
-                    background: "linear-gradient(90deg, #4b5563, #374151)",
-                  }}
-                >
-                  <motion.span
-                    className="flex items-center gap-2"
-                    whileHover={{ x: 2 }}
+              {/* Dropdown Menu */}
+              <AnimatePresence>
+                {showUserMenu && (
+                  <motion.div
+                    variants={dropdownVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="hidden"
+                    className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50"
                   >
-                    <LogOut className="w-4 h-4" />
-                    {loading ? "Cerrando..." : "Logout"}
-                  </motion.span>
-                </motion.button>
-              </motion.div>
+                    {/* Header del dropdown con info del usuario */}
+                    <div className="px-4 py-3 bg-gradient-to-r from-red-50 to-red-100 border-b border-gray-200">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {user.name || "Usuario"}
+                      </p>
+                      <p className="text-xs text-gray-600 truncate">
+                        {user.email}
+                      </p>
+                    </div>
+
+                    {/* Opciones del dropdown */}
+                    <div className="py-1">
+                      {/* Perfil */}
+                      <motion.button
+                        whileHover={{ backgroundColor: "#f3f4f6", x: 4 }}
+                        className="w-full px-4 py-3 text-left flex items-center gap-3 text-gray-700 hover:text-gray-900 transition-colors"
+                        onClick={() => {
+                          setShowUserMenu(false)
+                          // Aquí puedes navegar a la página de perfil
+                          // router.push('/perfil')
+                        }}
+                      >
+                        <UserCircle className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm font-medium">Mi Perfil</span>
+                      </motion.button>
+
+                      {/* Separador */}
+                      <div className="border-t border-gray-100 my-1" />
+
+                      {/* Cerrar Sesión */}
+                      <motion.button
+                        whileHover={{ backgroundColor: "#fef2f2", x: 4 }}
+                        className="w-full px-4 py-3 text-left flex items-center gap-3 text-red-600 hover:text-red-700 transition-colors"
+                        onClick={handleLogout}
+                        disabled={loading}
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span className="text-sm font-medium">
+                          {loading ? "Cerrando..." : "Cerrar Sesión"}
+                        </span>
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ) : (
             /* Si no hay usuario, mostrar botón de login */
@@ -582,63 +594,92 @@ const Navbar = () => {
                 </Link>
               </motion.div>
 
-              {navItems.map((item, index) => (
-                <motion.div
-                  key={item.href}
-                  initial={{ opacity: 0, x: -50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ x: 10 }}
+              {/* Carrito en mobile */}
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 }}
+                whileHover={{ x: 10 }}
+              >
+                <Link
+                  href="/carrito"
+                  className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl hover:bg-gradient-to-r hover:from-red-600/20 hover:to-red-700/10 transition-all duration-300"
+                  onClick={() => setOpen(false)}
                 >
-                  <Link
-                    href={item.href}
-                    className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl hover:bg-gradient-to-r hover:from-red-600/20 hover:to-red-700/10 transition-all duration-300"
-                    onClick={() => setOpen(false)}
+                  <motion.span
+                    className="text-2xl"
+                    whileHover={{ scale: 1.3, rotate: 15 }}
                   >
-                    <motion.span
-                      className="text-2xl"
-                      whileHover={{ scale: 1.3, rotate: 15 }}
-                    >
-                      {item.icon}
-                    </motion.span>
-                    <span className="text-lg">{item.label}</span>
-                    <motion.div
-                      className="ml-auto w-2 h-2 bg-red-500 rounded-full opacity-0 group-hover:opacity-100"
-                      whileHover={{ scale: 1.5 }}
-                    />
-                  </Link>
-                </motion.div>
-              ))}
+                    🛒
+                  </motion.span>
+                  <span className="text-lg">Carrito</span>
+                  <motion.div
+                    className="ml-auto w-2 h-2 bg-red-500 rounded-full opacity-0 group-hover:opacity-100"
+                    whileHover={{ scale: 1.5 }}
+                  />
+                </Link>
+              </motion.div>
 
-              {/* ✅ LOGOUT EN MOBILE */}
+              {/* Opciones de usuario en mobile */}
               {user && (
-                <motion.div
-                  initial={{ opacity: 0, x: -50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 }}
-                  whileHover={{ x: 10 }}
-                  className="mt-4 pt-4 border-t border-red-500/20"
-                >
-                  <button
-                    onClick={handleLogout}
-                    disabled={loading}
-                    className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl hover:bg-gradient-to-r hover:from-gray-600/20 hover:to-gray-700/10 transition-all duration-300 w-full text-left disabled:opacity-50"
+                <>
+                  {/* Perfil en mobile */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    whileHover={{ x: 10 }}
+                    className="mt-4 pt-4 border-t border-red-500/20"
                   >
-                    <motion.span
-                      className="text-2xl"
-                      whileHover={{ scale: 1.3, rotate: 15 }}
+                    <button
+                      onClick={() => {
+                        setOpen(false)
+                        // Navegar a perfil
+                      }}
+                      className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl hover:bg-gradient-to-r hover:from-blue-600/20 hover:to-blue-700/10 transition-all duration-300 w-full text-left"
                     >
-                      🚪
-                    </motion.span>
-                    <span className="text-lg">
-                      {loading ? "Cerrando..." : "Cerrar Sesión"}
-                    </span>
-                    <motion.div
-                      className="ml-auto w-2 h-2 bg-gray-500 rounded-full opacity-0 group-hover:opacity-100"
-                      whileHover={{ scale: 1.5 }}
-                    />
-                  </button>
-                </motion.div>
+                      <motion.span
+                        className="text-2xl"
+                        whileHover={{ scale: 1.3, rotate: 15 }}
+                      >
+                        👤
+                      </motion.span>
+                      <span className="text-lg">Mi Perfil</span>
+                      <motion.div
+                        className="ml-auto w-2 h-2 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100"
+                        whileHover={{ scale: 1.5 }}
+                      />
+                    </button>
+                  </motion.div>
+
+                  {/* Logout en mobile */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    whileHover={{ x: 10 }}
+                  >
+                    <button
+                      onClick={handleLogout}
+                      disabled={loading}
+                      className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl hover:bg-gradient-to-r hover:from-gray-600/20 hover:to-gray-700/10 transition-all duration-300 w-full text-left disabled:opacity-50"
+                    >
+                      <motion.span
+                        className="text-2xl"
+                        whileHover={{ scale: 1.3, rotate: 15 }}
+                      >
+                        🚪
+                      </motion.span>
+                      <span className="text-lg">
+                        {loading ? "Cerrando..." : "Cerrar Sesión"}
+                      </span>
+                      <motion.div
+                        className="ml-auto w-2 h-2 bg-gray-500 rounded-full opacity-0 group-hover:opacity-100"
+                        whileHover={{ scale: 1.5 }}
+                      />
+                    </button>
+                  </motion.div>
+                </>
               )}
             </motion.div>
 

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // components/SearchBarWithAPI.tsx
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Search, X, Loader2 } from "lucide-react"
 import { useProductSearch } from "../../hooks/useSearch"
 
@@ -20,14 +20,38 @@ const SearchBarWithAPI: React.FC<SearchBarWithAPIProps> = ({
   debounceMs = 500,
 }) => {
   const [searchTerm, setSearchTerm] = useState("")
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Hook de búsqueda
   const { results, loading, error, searchProducts, clearResults } =
     useProductSearch()
 
+  // ✅ FUNCIÓN HELPER PARA LIMPIAR TIMEOUT
+  const clearPendingSearch = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }
+
+  // ✅ FUNCIÓN PARA EJECUTAR BÚSQUEDA INMEDIATA
+  const executeSearch = (term: string) => {
+    clearPendingSearch() // Limpiar cualquier búsqueda pendiente
+
+    if (term.trim()) {
+      console.log("🔍 Executing immediate search for:", term)
+      searchProducts(term)
+    } else {
+      console.log("🔍 Clearing search results")
+      clearResults()
+    }
+  }
+
   // Debounce para la búsqueda automática
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
+    clearPendingSearch() // Limpiar timeout anterior
+
+    timeoutRef.current = setTimeout(() => {
       if (searchTerm.trim()) {
         console.log("🔍 Debounced search triggered for:", searchTerm)
         searchProducts(searchTerm)
@@ -36,7 +60,7 @@ const SearchBarWithAPI: React.FC<SearchBarWithAPIProps> = ({
       }
     }, debounceMs)
 
-    return () => clearTimeout(timeoutId)
+    return () => clearPendingSearch()
   }, [searchTerm, searchProducts, clearResults, debounceMs])
 
   // Notificar cambios de resultados al padre
@@ -49,16 +73,12 @@ const SearchBarWithAPI: React.FC<SearchBarWithAPIProps> = ({
     onSearchTermChange?.(searchTerm)
   }, [searchTerm, onSearchTermChange])
 
-  // ✅ MANEJAR ENTER - BÚSQUEDA INMEDIATA
+  // ✅ MANEJAR ENTER - BÚSQUEDA INMEDIATA MEJORADA
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault()
-      if (searchTerm.trim()) {
-        console.log("🔍 Enter pressed - immediate search for:", searchTerm)
-        searchProducts(searchTerm)
-      } else {
-        clearResults()
-      }
+      console.log("🔍 Enter pressed - executing immediate search")
+      executeSearch(searchTerm)
     }
   }
 
@@ -70,17 +90,21 @@ const SearchBarWithAPI: React.FC<SearchBarWithAPIProps> = ({
 
   // ✅ LIMPIAR BÚSQUEDA
   const clearSearch = () => {
+    clearPendingSearch() // Limpiar cualquier búsqueda pendiente
     setSearchTerm("")
     clearResults()
   }
 
-  // ✅ FUNCIÓN PARA BÚSQUEDA MANUAL (si quieres agregar un botón)
+  // ✅ FUNCIÓN PARA BÚSQUEDA MANUAL (botón buscar)
   const handleManualSearch = () => {
-    if (searchTerm.trim()) {
-      console.log("🔍 Manual search triggered for:", searchTerm)
-      searchProducts(searchTerm)
-    }
+    console.log("🔍 Manual search button clicked")
+    executeSearch(searchTerm)
   }
+
+  // Limpiar timeout al desmontar el componente
+  useEffect(() => {
+    return () => clearPendingSearch()
+  }, [])
 
   return (
     <div className={`${className}`}>
@@ -97,7 +121,7 @@ const SearchBarWithAPI: React.FC<SearchBarWithAPIProps> = ({
             placeholder={placeholder}
             value={searchTerm}
             onChange={handleSearchChange}
-            onKeyDown={handleKeyDown} // ✅ MANEJAR ENTER
+            onKeyDown={handleKeyDown}
             className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
           />
 
@@ -115,14 +139,14 @@ const SearchBarWithAPI: React.FC<SearchBarWithAPIProps> = ({
           {searchTerm && (
             <button
               onClick={clearSearch}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X size={16} />
             </button>
           )}
         </div>
 
-        {/* ✅ BOTÓN DE BÚSQUEDA OPCIONAL */}
+        {/* ✅ BOTÓN DE BÚSQUEDA */}
         <button
           onClick={handleManualSearch}
           disabled={!searchTerm.trim() || loading}
