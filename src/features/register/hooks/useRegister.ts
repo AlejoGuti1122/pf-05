@@ -1,16 +1,15 @@
-// hooks/useRegister.ts
+// hooks/useRegister.ts - Versión sin auto-login
 import { useState, useCallback } from "react"
 
 interface RegisterRequest {
   name: string
   email: string
   password: string
-  confirmPassword: string  
+  confirmPassword: string
   phone: number
   country: string
   address: string
   city: string
-  // age: number  ← QUITAR - Backend no lo acepta
 }
 
 interface RegisterResponse {
@@ -23,7 +22,6 @@ interface RegisterResponse {
     country: string
     address: string
     city: string
-    // age: number   ← QUITAR de respuesta también
     isAdmin: boolean
     isSuperAdmin: boolean
   }
@@ -44,6 +42,7 @@ const useRegister = (): UseRegisterReturn => {
 
   const register = useCallback(
     async (userData: RegisterRequest): Promise<RegisterResponse> => {
+      console.log("🔧 Hook userData keys:", Object.keys(userData))
       console.log("🔧 Hook userData:", JSON.stringify(userData, null, 2))
 
       setLoading(true)
@@ -51,7 +50,6 @@ const useRegister = (): UseRegisterReturn => {
       setSuccess(false)
 
       try {
-        // ✅ URL correcta según Swagger
         const response = await fetch(
           "http://localhost:3001/auth/register",
           {
@@ -64,29 +62,25 @@ const useRegister = (): UseRegisterReturn => {
         )
 
         if (!response.ok) {
-          // Si falla, mostrar info útil para debugging
-          console.error(`❌ Error ${response.status}: ${response.statusText}`)
-          
-          // Intentar obtener mensaje de error del servidor
-          const errorData = await response.json().catch(() => ({
-            message: `Error ${response.status}: ${response.statusText}`
-          }))
-          
-          throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(
+            errorData.message ||
+              `Error ${response.status}: ${response.statusText}`
+          )
         }
 
         const result: RegisterResponse = await response.json()
         setSuccess(true)
 
-        // Guardar token en localStorage
-        localStorage.setItem("auth_token", result.token)
-        localStorage.setItem("user_data", JSON.stringify(result.user))
+        // ❌ NO GUARDAR TOKEN AUTOMÁTICAMENTE
+        // localStorage.setItem("token", result.token)
+        // localStorage.setItem("user", JSON.stringify(result.user))
 
-        console.log("✅ Register exitoso:", result)
+        console.log("✅ Registro exitoso, pero sin auto-login")
         return result
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Error al registrar usuario"
-        console.error("❌ Register error:", errorMessage)
+        const errorMessage =
+          err instanceof Error ? err.message : "Error al registrar usuario"
         setError(errorMessage)
         throw err
       } finally {

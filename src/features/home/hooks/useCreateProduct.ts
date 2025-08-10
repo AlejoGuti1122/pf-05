@@ -22,6 +22,8 @@ const useCreateProduct = (): UseCreateProductReturn => {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+
+
   const createProduct = useCallback(
     async (
       productData: CreateProductRequest

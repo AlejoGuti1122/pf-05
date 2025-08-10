@@ -16,17 +16,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Package, CheckCircle, AlertCircle } from "lucide-react"
 
 import useCategories from "../../hooks/useCategories"
-import useCreateProduct from "../../hooks/useCreateProduct"
+// ✅ USAR EL HOOK LIMPIO
+
 import ProductFormFields from "../ProductFormFields"
-import { ProductFormValues } from "../../types/product-form"
-import { CreateProductRequest } from "../../types/products"
+import { CreateProductClean, ProductFormClean } from "@/features/form/types/productClean"
+import { useCreateProductClean } from "@/features/form/hooks/useCreateForm"
+// ✅ USAR LOS TIPOS LIMPIOS
+
 
 interface ProductFormProps {
   onSuccess?: (productId: string) => void
   onCancel?: () => void
 }
 
-// Validación con Yup
+// Validación con Yup (sin cambios)
 const validationSchema = Yup.object({
   name: Yup.string()
     .min(3, "El nombre debe tener al menos 3 caracteres")
@@ -47,7 +50,6 @@ const validationSchema = Yup.object({
     .url("Debe ser una URL válida")
     .required("La URL de la imagen es obligatoria"),
 
-  // En validationSchema, reemplazar la validación del year por:
   year: Yup.string()
     .matches(/^\d{4}$/, "Debe ser un año válido (4 dígitos)")
     .test("year-range", "El año debe ser mayor a 1900", function (value) {
@@ -76,10 +78,11 @@ const validationSchema = Yup.object({
   categoryId: Yup.string().required("La categoría es obligatoria"),
 })
 
-const initialValues: ProductFormValues = {
+// ✅ USAR EL TIPO LIMPIO PARA INITIAL VALUES
+const initialValues: ProductFormClean = {
   name: "",
-  price: "",
-  stock: "",
+  price: "", // ← STRING en el form
+  stock: "", // ← STRING en el form
   imgUrl: "",
   year: "",
   brand: "",
@@ -89,8 +92,15 @@ const initialValues: ProductFormValues = {
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
-  const { createProduct, loading, error, success, clearStatus } =
-    useCreateProduct()
+  console.log("🔍 Token actual:", localStorage.getItem("token"))
+  console.log("🔍 User actual:", localStorage.getItem("user"))
+  console.log(
+    "🔍 User parseado:",
+    JSON.parse(localStorage.getItem("user") || "{}")
+  )
+  
+  // ✅ USAR EL HOOK LIMPIO
+  const { createProduct, loading, error, success, clearStatus } = useCreateProductClean()
   const {
     categories,
     loading: loadingCategories,
@@ -102,22 +112,29 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     clearStatus()
   }, [clearStatus])
 
+  // ✅ HANDLESUBMIT COMPLETAMENTE LIMPIO
   const handleSubmit = async (
-    values: ProductFormValues,
+    values: ProductFormClean,
     { resetForm }: any
   ) => {
     try {
-      const productData: CreateProductRequest = {
+      console.log("🎯 Form Clean - Form values:", values)
+
+      // ✅ CONVERSIÓN SIMPLE Y DIRECTA
+      const productData: CreateProductClean = {
         name: values.name.trim(),
-        price: parseFloat(values.price),
-        stock: parseInt(values.stock),
+        price: parseFloat(values.price),    // ✅ CONVERSIÓN SIMPLE
+        stock: parseInt(values.stock),      // ✅ CONVERSIÓN SIMPLE
         imgUrl: values.imgUrl.trim(),
-        year: values.year.trim(),
+        year: values.year.trim(),           // ✅ STRING COMO SWAGGER
         brand: values.brand.trim(),
         model: values.model.trim(),
         engine: values.engine.trim(),
         categoryId: values.categoryId,
       }
+
+      console.log("🎯 Form Clean - Sending to hook:", productData)
+      console.log("🔍 Types - price:", typeof productData.price, "stock:", typeof productData.stock, "year:", typeof productData.year)
 
       const result = await createProduct(productData)
 
@@ -129,8 +146,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
         onSuccess(result.id)
       }
     } catch (err) {
-      // El error ya se maneja en el hook
-      console.error("Error creating product:", err)
+      console.error("❌ Form Clean - Error:", err)
     }
   }
 
@@ -141,11 +157,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
           <div className="flex items-center justify-center gap-2 mb-2">
             <Package className="h-8 w-8 text-blue-600" />
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Crear Nuevo Producto
+              Crear Nuevo Producto (CLEAN)
             </CardTitle>
           </div>
           <CardDescription className="text-lg">
-            Agrega un nuevo repuesto a tu catálogo
+            Agrega un nuevo repuesto a tu catálogo - Versión Limpia
           </CardDescription>
         </CardHeader>
 
@@ -155,7 +171,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
             <Alert className="mb-6 border-green-200 bg-green-50">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
-                ¡Producto creado exitosamente! 🎉
+                ¡Producto creado exitosamente con CLEAN! 🎉
               </AlertDescription>
             </Alert>
           )}
@@ -211,17 +227,17 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                   <Button
                     type="submit"
                     disabled={loading || !isValid || !dirty}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
                   >
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creando...
+                        Creando (CLEAN)...
                       </>
                     ) : (
                       <>
                         <Package className="mr-2 h-4 w-4" />
-                        Crear Producto
+                        Crear Producto CLEAN
                       </>
                     )}
                   </Button>
@@ -241,7 +257,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
 
                 {/* Información adicional */}
                 <div className="text-center text-sm text-gray-500 pt-4 border-t">
-                  Los campos marcados con * son obligatorios
+                  Los campos marcados con * son obligatorios - Versión CLEAN
                 </div>
               </Form>
             )}

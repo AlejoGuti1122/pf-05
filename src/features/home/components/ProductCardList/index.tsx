@@ -1,13 +1,13 @@
 // components/ProductCardsList.tsx
 import React, { useState } from "react"
 import {
-  Search,
   Filter,
   SortAsc,
   ChevronDown,
   ChevronUp,
   X,
   Heart,
+  Search,
 } from "lucide-react"
 import useProducts from "../../hooks/useProducts"
 import Product from "../../types/products"
@@ -223,27 +223,190 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
 
   return (
     <div className={`${className}`}>
-      {/* Header con búsqueda y filtros */}
-      <div className="mb-6">
-        {/* Barra de búsqueda y botón filtros */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-4">
-          <div className="relative flex-1">
-            <Search
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-              size={20}
-            />
-            <input
-              type="text"
-              placeholder="Buscar productos por nombre, marca, modelo..."
-              value={onSearchChange ? searchTerm : localSearchTerm}
-              onChange={handleSearchChange}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+      {/* Panel de filtros */}
+      {showFilters && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Filtro de precio */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Rango de Precio
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={
+                    filters.priceRange.min === 0 ? "" : filters.priceRange.min
+                  }
+                  onChange={(e) =>
+                    handleFilterChange({
+                      priceRange: {
+                        ...filters.priceRange,
+                        min: Number(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={
+                    filters.priceRange.max === Infinity
+                      ? ""
+                      : filters.priceRange.max
+                  }
+                  onChange={(e) =>
+                    handleFilterChange({
+                      priceRange: {
+                        ...filters.priceRange,
+                        max: Number(e.target.value) || Infinity,
+                      },
+                    })
+                  }
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Filtro de marcas */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Marcas
+              </label>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {availableData.brands.map((brand) => (
+                  <label
+                    key={brand}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.selectedBrands.includes(brand)}
+                      onChange={() => handleBrandToggle(brand)}
+                      className="rounded"
+                    />
+                    {brand}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtro de año */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Rango de Año
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Desde"
+                  value={
+                    filters.yearRange.min === 0 ? "" : filters.yearRange.min
+                  }
+                  onChange={(e) =>
+                    handleFilterChange({
+                      yearRange: {
+                        ...filters.yearRange,
+                        min: Number(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+                <input
+                  type="number"
+                  placeholder="Hasta"
+                  value={
+                    filters.yearRange.max === new Date().getFullYear()
+                      ? ""
+                      : filters.yearRange.max
+                  }
+                  onChange={(e) =>
+                    handleFilterChange({
+                      yearRange: {
+                        ...filters.yearRange,
+                        max:
+                          Number(e.target.value) || new Date().getFullYear(),
+                      },
+                    })
+                  }
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Filtro de stock */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Disponibilidad
+              </label>
+              <select
+                value={filters.stockFilter}
+                onChange={(e) =>
+                  handleFilterChange({
+                    stockFilter: e.target.value as
+                      | "all"
+                      | "inStock"
+                      | "outOfStock",
+                  })
+                }
+                className="w-full px-2 py-1 border rounded text-sm"
+              >
+                <option value="all">Todos</option>
+                <option value="inStock">En Stock</option>
+                <option value="outOfStock">Sin Stock</option>
+              </select>
+            </div>
           </div>
 
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              onClick={clearFilters}
+              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
+            >
+              <X size={14} />
+              Limpiar filtros
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Chips de filtros activos */}
+      {getActiveFiltersCount() > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {filters.selectedBrands.map((brand) => (
+            <span
+              key={brand}
+              className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm flex items-center gap-1"
+            >
+              {brand}
+              <button onClick={() => handleBrandToggle(brand)}>
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+          {filters.stockFilter !== "all" && (
+            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm flex items-center gap-1">
+              {filters.stockFilter === "inStock" ? "En Stock" : "Sin Stock"}
+              <button
+                onClick={() => handleFilterChange({ stockFilter: "all" })}
+              >
+                <X size={12} />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Controles de filtros y ordenamiento */}
+      <div className="flex flex-col gap-4 mb-6">
+        {/* Botón de filtros */}
+        <div className="flex justify-between items-center">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`px-4 py-3 rounded-lg border transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg border transition-colors flex items-center gap-2 ${
               showFilters
                 ? "bg-blue-100 border-blue-300 text-blue-700"
                 : "bg-white border-gray-300 hover:bg-gray-50"
@@ -259,183 +422,6 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
             {showFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         </div>
-
-        {/* Panel de filtros */}
-        {showFilters && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Filtro de precio */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Rango de Precio
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={
-                      filters.priceRange.min === 0 ? "" : filters.priceRange.min
-                    }
-                    onChange={(e) =>
-                      handleFilterChange({
-                        priceRange: {
-                          ...filters.priceRange,
-                          min: Number(e.target.value) || 0,
-                        },
-                      })
-                    }
-                    className="w-full px-2 py-1 border rounded text-sm"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={
-                      filters.priceRange.max === Infinity
-                        ? ""
-                        : filters.priceRange.max
-                    }
-                    onChange={(e) =>
-                      handleFilterChange({
-                        priceRange: {
-                          ...filters.priceRange,
-                          max: Number(e.target.value) || Infinity,
-                        },
-                      })
-                    }
-                    className="w-full px-2 py-1 border rounded text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Filtro de marcas */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Marcas
-                </label>
-                <div className="max-h-32 overflow-y-auto space-y-1">
-                  {availableData.brands.map((brand) => (
-                    <label
-                      key={brand}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={filters.selectedBrands.includes(brand)}
-                        onChange={() => handleBrandToggle(brand)}
-                        className="rounded"
-                      />
-                      {brand}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Filtro de año */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Rango de Año
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Desde"
-                    value={
-                      filters.yearRange.min === 0 ? "" : filters.yearRange.min
-                    }
-                    onChange={(e) =>
-                      handleFilterChange({
-                        yearRange: {
-                          ...filters.yearRange,
-                          min: Number(e.target.value) || 0,
-                        },
-                      })
-                    }
-                    className="w-full px-2 py-1 border rounded text-sm"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Hasta"
-                    value={
-                      filters.yearRange.max === new Date().getFullYear()
-                        ? ""
-                        : filters.yearRange.max
-                    }
-                    onChange={(e) =>
-                      handleFilterChange({
-                        yearRange: {
-                          ...filters.yearRange,
-                          max:
-                            Number(e.target.value) || new Date().getFullYear(),
-                        },
-                      })
-                    }
-                    className="w-full px-2 py-1 border rounded text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Filtro de stock */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Disponibilidad
-                </label>
-                <select
-                  value={filters.stockFilter}
-                  onChange={(e) =>
-                    handleFilterChange({
-                      stockFilter: e.target.value as
-                        | "all"
-                        | "inStock"
-                        | "outOfStock",
-                    })
-                  }
-                  className="w-full px-2 py-1 border rounded text-sm"
-                >
-                  <option value="all">Todos</option>
-                  <option value="inStock">En Stock</option>
-                  <option value="outOfStock">Sin Stock</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={clearFilters}
-                className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
-              >
-                <X size={14} />
-                Limpiar filtros
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Chips de filtros activos */}
-        {getActiveFiltersCount() > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {filters.selectedBrands.map((brand) => (
-              <span
-                key={brand}
-                className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm flex items-center gap-1"
-              >
-                {brand}
-                <button onClick={() => handleBrandToggle(brand)}>
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-            {filters.stockFilter !== "all" && (
-              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm flex items-center gap-1">
-                {filters.stockFilter === "inStock" ? "En Stock" : "Sin Stock"}
-                <button
-                  onClick={() => handleFilterChange({ stockFilter: "all" })}
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            )}
-          </div>
-        )}
 
         {/* Controles de ordenamiento */}
         <div className="flex flex-wrap gap-2 items-center">

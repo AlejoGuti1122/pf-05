@@ -4,7 +4,6 @@ import { User, LoginRequest, AuthResponse } from '../types/login'
 import { RegisterRequest } from '../../register/types/register'
 import { authService } from '../services/login-service'
 
-
 interface UseAuthReturn {
   // Estados
   user: User | null
@@ -13,9 +12,9 @@ interface UseAuthReturn {
   loading: boolean
   error: string | null
   
-  // Acciones
-  login: (credentials: LoginRequest) => Promise<void>
-  register: (userData: RegisterRequest) => Promise<void>
+  // Acciones - ✅ CAMBIAR TIPADO PARA QUE RETORNE AuthResponse
+  login: (credentials: LoginRequest) => Promise<AuthResponse>
+  register: (userData: RegisterRequest) => Promise<AuthResponse>
   logout: () => void
   clearError: () => void
 }
@@ -33,19 +32,21 @@ const useAuth = (): UseAuthReturn => {
     }
   }, [])
 
-  const login = useCallback(async (credentials: LoginRequest) => {
+  // ✅ FUNCIÓN LOGIN CORREGIDA - AHORA RETORNA EL RESULTADO
+  const login = useCallback(async (credentials: LoginRequest): Promise<AuthResponse> => {
     setLoading(true)
     setError(null)
 
     try {
       const response: AuthResponse = await authService.login(credentials)
       
-      // Guardar token y usuario
-      authService.saveToken(response.token)
-      authService.saveUser(response.user)
-      
-      // Actualizar estado
+      // Actualizar estado local del hook
       setUser(response.user)
+      
+      console.log("🎯 Hook useAuth - Login exitoso:", response)
+      
+      // ✅ RETORNAR LA RESPUESTA PARA QUE EL COMPONENTE LA USE
+      return response
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al iniciar sesión'
@@ -56,19 +57,19 @@ const useAuth = (): UseAuthReturn => {
     }
   }, [])
 
-  const register = useCallback(async (userData: RegisterRequest) => {
+  // ✅ FUNCIÓN REGISTER CORREGIDA - TAMBIÉN RETORNA EL RESULTADO
+  const register = useCallback(async (userData: RegisterRequest): Promise<AuthResponse> => {
     setLoading(true)
     setError(null)
 
     try {
       const response: AuthResponse = await authService.register(userData)
       
-      // Guardar token y usuario
-      authService.saveToken(response.token)
-      authService.saveUser(response.user)
-      
-      // Actualizar estado
+      // Actualizar estado local del hook
       setUser(response.user)
+      
+      // ✅ RETORNAR LA RESPUESTA
+      return response
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al registrar usuario'
@@ -89,8 +90,8 @@ const useAuth = (): UseAuthReturn => {
     setError(null)
   }, [])
 
-  // Estados derivados
-  const isAuthenticated = !!user
+  // ✅ MEJORAR isAuthenticated PARA QUE USE EL authService
+  const isAuthenticated = authService.isAuthenticated()
   const isAdmin = user?.isAdmin || user?.isSuperAdmin || false
 
   return {

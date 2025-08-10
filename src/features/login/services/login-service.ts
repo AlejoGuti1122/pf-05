@@ -1,21 +1,48 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// services/authService.ts
+// services/authService.ts - VERSIÓN ACTUALIZADA
 
-import { AuthResponse, LoginRequest, RegisterRequest } from "@/features/register/types/register"
+import {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+} from "@/features/register/types/register"
 
 class AuthService {
   private baseURL: string
 
   constructor() {
-    this.baseURL = "http://localhost:3001" // ✅ CORREGIR URL
+    this.baseURL = "http://localhost:3001"
+  }
+
+  // ✅ NUEVA FUNCIÓN PARA DECODIFICAR JWT
+  private decodeJWT(token: string): any | null {
+    try {
+      // Un JWT tiene 3 partes separadas por puntos
+      const parts = token.split(".")
+      if (parts.length !== 3) {
+        console.error("❌ Token JWT inválido")
+        return null
+      }
+
+      // Decodificar la segunda parte (payload)
+      const payload = parts[1]
+      // Añadir padding si es necesario
+      const paddedPayload = payload + "=".repeat((4 - (payload.length % 4)) % 4)
+      const decoded = atob(paddedPayload)
+      const user = JSON.parse(decoded)
+
+      console.log("✅ Usuario decodificado del JWT:", user)
+      return user
+    } catch (error) {
+      console.error("❌ Error decodificando JWT:", error)
+      return null
+    }
   }
 
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     const response = await fetch(`${this.baseURL}/auth/signin`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(credentials),
     })
 
@@ -26,7 +53,41 @@ class AuthService {
       )
     }
 
-    return response.json()
+    const data = await response.json()
+    console.log("🔍 RESPUESTA COMPLETA DEL BACKEND:", data)
+    console.log("🔍 CLAVES DISPONIBLES:", Object.keys(data))
+
+    // ✅ PROBAR DIFERENTES NOMBRES DE TOKEN
+    const token =
+      data.access_Token || data.accessToken || data.token || data.access_token
+    console.log("🔍 TOKEN EXTRAÍDO:", token)
+
+    let user = data.user || null
+
+    // ✅ SI NO VIENE USER, LO DECODIFICAMOS DEL TOKEN
+    if (!user && token) {
+      user = this.decodeJWT(token)
+      console.log("🔍 USER DECODIFICADO DEL JWT:", user)
+    }
+
+    // Guardamos el token inmediatamente si existe
+    if (token) {
+      this.saveToken(token)
+      console.log("✅ Token guardado en localStorage")
+    } else {
+      console.error("❌ NO SE ENCONTRÓ TOKEN EN LA RESPUESTA")
+      console.log("Estructura de data:", JSON.stringify(data, null, 2))
+    }
+
+    // Guardamos el usuario si existe
+    if (user) {
+      this.saveUser(user)
+      console.log("✅ Usuario guardado en localStorage")
+    }
+
+    const result = { token, user }
+    console.log("🎯 RESULTADO FINAL DEL LOGIN:", result)
+    return result
   }
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
@@ -48,10 +109,43 @@ class AuthService {
     return response.json()
   }
 
-  // Métodos para manejar tokens
+  // ✅ MÉTODO MEJORADO PARA VERIFICAR SI ESTÁ AUTENTICADO
+  isAuthenticated(): boolean {
+    const token = this.getToken()
+    const user = this.getUser()
+
+    if (!token || !user) {
+      console.log("❌ No hay token o usuario")
+      return false
+    }
+
+    // Verificar que el token no haya expirado
+    try {
+      const decodedToken = this.decodeJWT(token)
+      if (!decodedToken) {
+        console.log("❌ No se pudo decodificar el token")
+        return false
+      }
+
+      const currentTime = Math.floor(Date.now() / 1000)
+      if (decodedToken.exp && decodedToken.exp < currentTime) {
+        console.log("❌ Token expirado")
+        this.logout() // Limpiar datos expirados
+        return false
+      }
+
+      console.log("✅ Usuario autenticado correctamente")
+      return true
+    } catch (error) {
+      console.error("❌ Error verificando autenticación:", error)
+      return false
+    }
+  }
+
+  // Métodos para manejar tokens (sin cambios)
   saveToken(token: string): void {
     try {
-      localStorage.setItem("auth_token", token)
+      localStorage.setItem("token", token)
     } catch (error) {
       console.error("Error saving token:", error)
     }
@@ -59,13 +153,12 @@ class AuthService {
 
   getToken(): string | null {
     try {
-      const token = localStorage.getItem("auth_token")
-      
-      // ✅ VALIDACIÓN SEGURA
-      if (!token || token === 'undefined' || token === 'null') {
+      const token = localStorage.getItem("token")
+
+      if (!token || token === "undefined" || token === "null") {
         return null
       }
-      
+
       return token
     } catch (error) {
       console.error("Error getting token:", error)
@@ -75,7 +168,7 @@ class AuthService {
 
   removeToken(): void {
     try {
-      localStorage.removeItem("auth_token")
+      localStorage.removeItem("token")
     } catch (error) {
       console.error("Error removing token:", error)
     }
@@ -83,7 +176,7 @@ class AuthService {
 
   saveUser(user: any): void {
     try {
-      localStorage.setItem("user_data", JSON.stringify(user))
+      localStorage.setItem("user", JSON.stringify(user))
     } catch (error) {
       console.error("Error saving user:", error)
     }
@@ -91,17 +184,15 @@ class AuthService {
 
   getUser(): any | null {
     try {
-      const userData = localStorage.getItem("user_data")
-      
-      // ✅ VALIDACIÓN SEGURA - AQUÍ ESTABA EL PROBLEMA
-      if (!userData || userData === 'undefined' || userData === 'null') {
+      const userData = localStorage.getItem("user")
+
+      if (!userData || userData === "undefined" || userData === "null") {
         return null
       }
-      
+
       return JSON.parse(userData)
     } catch (error) {
       console.error("Error parsing user data:", error)
-      // ✅ Limpiar localStorage corrupto
       this.removeUser()
       this.removeToken()
       return null
@@ -110,7 +201,7 @@ class AuthService {
 
   removeUser(): void {
     try {
-      localStorage.removeItem("user_data")
+      localStorage.removeItem("user")
     } catch (error) {
       console.error("Error removing user:", error)
     }
@@ -119,10 +210,6 @@ class AuthService {
   logout(): void {
     this.removeToken()
     this.removeUser()
-  }
-
-  isAuthenticated(): boolean {
-    return !!this.getToken() && !!this.getUser()
   }
 
   isAdmin(): boolean {

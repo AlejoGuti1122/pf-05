@@ -19,7 +19,7 @@ import { Loader2, LogIn, Mail, Lock, AlertCircle } from "lucide-react"
 
 import { LoginFormValues } from "../../types/login"
 import { useRouter } from "next/navigation"
-import useAuth from "../../hooks/useLogin"
+import useAuth from "../../hooks/useAuth"
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -68,6 +68,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
     }
   }, [isAuthenticated, onSuccess, router])
 
+  // ✅ FUNCIÓN handleSubmit CORREGIDA
   const handleSubmit = async (
     values: LoginFormValues,
     { setSubmitting }: any
@@ -79,18 +80,24 @@ const LoginForm: React.FC<LoginFormProps> = ({
         email: values.email.toLowerCase().trim(),
         password: values.password,
       })
+      
+      console.log("✅ Login result:", result)
+      console.log("🔍 Token en localStorage:", localStorage.getItem("token"))
+      console.log("🔍 User en localStorage:", localStorage.getItem("user"))
 
-      console.log("✅ Login exitoso!", result)
-      console.log("🔍 isAuthenticated después del login:", isAuthenticated)
-
-      if (!isAuthenticated) {
-        console.log(
-          "⚠️ isAuthenticated aún es false, redirigiendo manualmente..."
-        )
+      // ✅ AHORA SÍ PODEMOS VERIFICAR EL RESULTADO
+      if (result && result.token && result.user) {
+        console.log("✅ Login exitoso! Datos recibidos:", result)
         router.push("/home")
+        return
       }
+
+      // ❌ Si llegamos aquí, algo salió mal
+      console.error("❌ Login falló: no se recibió token o usuario válido")
+      
     } catch (err) {
       console.error("❌ Login error:", err)
+      // Aquí puedes mostrar un mensaje de error al usuario
     } finally {
       setSubmitting(false)
     }
@@ -122,8 +129,6 @@ const LoginForm: React.FC<LoginFormProps> = ({
         </CardHeader>
 
         <CardContent className="p-8 bg-gray-50/30">
-          {/* Credenciales - Card minimalista */}
-
           {/* Error - Diseño limpio */}
           {error && (
             <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl">

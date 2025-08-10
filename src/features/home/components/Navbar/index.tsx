@@ -14,7 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
+import { motion, AnimatePresence, useScroll, useTransform, Variants } from "framer-motion"
 
 const Navbar = () => {
   const [open, setOpen] = useState(false)
@@ -40,7 +40,7 @@ const Navbar = () => {
   }, [])
 
   // Animaciones de container
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0, y: -100 },
     visible: {
       opacity: 1,
@@ -54,7 +54,7 @@ const Navbar = () => {
   }
 
   // Animaciones de items del nav
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: -20 },
     visible: {
       opacity: 1,
@@ -68,7 +68,7 @@ const Navbar = () => {
   }
 
   // Animación del logo
-  const logoVariants = {
+  const logoVariants: Variants = {
     hidden: { opacity: 0, scale: 0.5, rotate: -180 },
     visible: {
       opacity: 1,
@@ -262,6 +262,52 @@ const Navbar = () => {
             </motion.div>
           ))}
 
+          {/* Botón CREAR PRODUCTO épico */}
+          <motion.div
+            variants={itemVariants}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Link href="/form" className="relative group">
+              <motion.div
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white font-bold border-2 border-red-500 hover:border-red-400 transition-all duration-300 shadow-lg"
+                whileHover={{
+                  boxShadow: "0 0 25px rgba(220,38,38,0.6)",
+                  background: "linear-gradient(90deg, #dc2626, #b91c1c)",
+                }}
+                animate={{
+                  boxShadow: [
+                    "0 0 15px rgba(220,38,38,0.4)",
+                    "0 0 25px rgba(220,38,38,0.6)",
+                    "0 0 15px rgba(220,38,38,0.4)",
+                  ],
+                }}
+                transition={{ duration: 2.5, repeat: Infinity }}
+              >
+                <motion.span
+                  className="flex items-center gap-2"
+                  whileHover={{ x: 2 }}
+                >
+                  <Zap className="w-4 h-4" />
+                  Crear Repuesto
+                </motion.span>
+                
+                {/* Efecto de brillo */}
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-xl"
+                  animate={{
+                    x: ['-100%', '100%'],
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    repeatDelay: 2,
+                  }}
+                />
+              </motion.div>
+            </Link>
+          </motion.div>
+
           {/* Carrito súper animado */}
           <motion.div
             variants={itemVariants}
@@ -400,6 +446,32 @@ const Navbar = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, staggerChildren: 0.1 }}
             >
+              {/* Crear Producto destacado en mobile */}
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.05 }}
+                whileHover={{ x: 10 }}
+              >
+                <Link
+                  href="/create-product"
+                  className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl bg-gradient-to-r from-red-600/30 to-red-700/20 border border-red-500/30 hover:from-red-600/50 hover:to-red-700/40 transition-all duration-300 mb-2"
+                  onClick={() => setOpen(false)}
+                >
+                  <motion.span
+                    className="text-2xl"
+                    whileHover={{ scale: 1.3, rotate: 15 }}
+                  >
+                    ⚡
+                  </motion.span>
+                  <span className="text-lg font-bold">Crear Repuesto</span>
+                  <motion.div
+                    className="ml-auto w-2 h-2 bg-red-500 rounded-full opacity-0 group-hover:opacity-100"
+                    whileHover={{ scale: 1.5 }}
+                  />
+                </Link>
+              </motion.div>
+
               {navItems.map((item, index) => (
                 <motion.div
                   key={item.href}
