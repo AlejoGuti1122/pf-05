@@ -1,104 +1,91 @@
-// components/SearchBar.tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// components/SearchBarWithAPI.tsx
 import React, { useState, useEffect } from "react"
-import { Search, Filter, X, ChevronDown, ChevronUp } from "lucide-react"
+import { Search, X, Loader2 } from "lucide-react"
+import { useProductSearch } from "../../hooks/useSearch"
 
-export interface SearchFilters {
-  priceRange: { min: number; max: number }
-  selectedBrands: string[]
-  yearRange: { min: number; max: number }
-  stockFilter: "all" | "inStock" | "outOfStock"
-}
-
-interface SearchBarProps {
-  searchTerm: string
-  onSearchChange: (term: string) => void
-  filters?: SearchFilters
-  onFiltersChange?: (filters: SearchFilters) => void
-  availableBrands?: string[]
-  showFilters?: boolean
+interface SearchBarWithAPIProps {
+  onResultsChange?: (results: any[]) => void
+  onSearchTermChange?: (term: string) => void
   placeholder?: string
   className?: string
+  debounceMs?: number
 }
 
-const defaultFilters: SearchFilters = {
-  priceRange: { min: 0, max: Infinity },
-  selectedBrands: [],
-  yearRange: { min: 0, max: new Date().getFullYear() },
-  stockFilter: "all",
-}
-
-const SearchBar: React.FC<SearchBarProps> = ({
-  searchTerm,
-  onSearchChange,
-  filters = defaultFilters,
-  onFiltersChange,
-  availableBrands = [],
-  showFilters = true,
+const SearchBarWithAPI: React.FC<SearchBarWithAPIProps> = ({
+  onResultsChange,
+  onSearchTermChange,
   placeholder = "Buscar productos por nombre, marca, modelo...",
   className = "",
+  debounceMs = 500,
 }) => {
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false)
-  const [localFilters, setLocalFilters] = useState<SearchFilters>(filters)
+  const [searchTerm, setSearchTerm] = useState("")
 
-  // Sincronizar filtros externos con estado local
+  // Hook de búsqueda
+  const { results, loading, error, searchProducts, clearResults } =
+    useProductSearch()
+
+  // Debounce para la búsqueda automática
   useEffect(() => {
-    setLocalFilters(filters)
-  }, [filters])
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim()) {
+        console.log("🔍 Debounced search triggered for:", searchTerm)
+        searchProducts(searchTerm)
+      } else {
+        clearResults()
+      }
+    }, debounceMs)
 
-  // Handlers
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onSearchChange(e.target.value)
-  }
+    return () => clearTimeout(timeoutId)
+  }, [searchTerm, searchProducts, clearResults, debounceMs])
 
-  const handleFilterChange = (newFilters: Partial<SearchFilters>) => {
-    const updatedFilters = { ...localFilters, ...newFilters }
-    setLocalFilters(updatedFilters)
-    onFiltersChange?.(updatedFilters)
-  }
+  // Notificar cambios de resultados al padre
+  useEffect(() => {
+    onResultsChange?.(results)
+  }, [results, onResultsChange])
 
-  const handleBrandToggle = (brand: string) => {
-    const newSelectedBrands = localFilters.selectedBrands.includes(brand)
-      ? localFilters.selectedBrands.filter((b) => b !== brand)
-      : [...localFilters.selectedBrands, brand]
-    
-    handleFilterChange({ selectedBrands: newSelectedBrands })
-  }
+  // Notificar cambios de término de búsqueda al padre
+  useEffect(() => {
+    onSearchTermChange?.(searchTerm)
+  }, [searchTerm, onSearchTermChange])
 
-  const clearFilters = () => {
-    const clearedFilters = {
-      priceRange: { min: 0, max: Infinity },
-      selectedBrands: [],
-      yearRange: { min: 0, max: new Date().getFullYear() },
-      stockFilter: "all" as const,
+  // ✅ MANEJAR ENTER - BÚSQUEDA INMEDIATA
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      if (searchTerm.trim()) {
+        console.log("🔍 Enter pressed - immediate search for:", searchTerm)
+        searchProducts(searchTerm)
+      } else {
+        clearResults()
+      }
     }
-    setLocalFilters(clearedFilters)
-    onFiltersChange?.(clearedFilters)
   }
 
-  const getActiveFiltersCount = () => {
-    let count = 0
-    if (localFilters.priceRange.min > 0 || localFilters.priceRange.max < Infinity) count++
-    if (localFilters.selectedBrands.length > 0) count++
-    if (
-      localFilters.yearRange.min > 0 ||
-      localFilters.yearRange.max < new Date().getFullYear()
-    ) count++
-    if (localFilters.stockFilter !== "all") count++
-    return count
+  // ✅ MANEJAR CAMBIO EN EL INPUT
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
   }
 
-  const removeBrandFilter = (brand: string) => {
-    handleBrandToggle(brand)
+  // ✅ LIMPIAR BÚSQUEDA
+  const clearSearch = () => {
+    setSearchTerm("")
+    clearResults()
   }
 
-  const removeStockFilter = () => {
-    handleFilterChange({ stockFilter: "all" })
+  // ✅ FUNCIÓN PARA BÚSQUEDA MANUAL (si quieres agregar un botón)
+  const handleManualSearch = () => {
+    if (searchTerm.trim()) {
+      console.log("🔍 Manual search triggered for:", searchTerm)
+      searchProducts(searchTerm)
+    }
   }
 
   return (
     <div className={`${className}`}>
       {/* Barra de búsqueda principal */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+      <div className="flex gap-4 mb-4">
         {/* Input de búsqueda */}
         <div className="relative flex-1">
           <Search
@@ -110,245 +97,79 @@ const SearchBar: React.FC<SearchBarProps> = ({
             placeholder={placeholder}
             value={searchTerm}
             onChange={handleSearchChange}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            onKeyDown={handleKeyDown} // ✅ MANEJAR ENTER
+            className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
           />
+
+          {/* Loading spinner en el input */}
+          {loading && (
+            <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
+              <Loader2
+                className="animate-spin text-blue-500"
+                size={16}
+              />
+            </div>
+          )}
+
+          {/* Botón limpiar búsqueda */}
+          {searchTerm && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
-        {/* Botón de filtros */}
-        {showFilters && (
-          <button
-            onClick={() => setShowFiltersPanel(!showFiltersPanel)}
-            className={`px-4 py-3 rounded-lg border transition-colors flex items-center gap-2 whitespace-nowrap ${
-              showFiltersPanel
-                ? "bg-blue-100 border-blue-300 text-blue-700"
-                : "bg-white border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            <Filter size={20} />
-            Filtros
-            {getActiveFiltersCount() > 0 && (
-              <span className="bg-blue-600 text-white text-xs rounded-full px-2 py-1 min-w-[20px] h-5 flex items-center justify-center">
-                {getActiveFiltersCount()}
-              </span>
-            )}
-            {showFiltersPanel ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-        )}
+        {/* ✅ BOTÓN DE BÚSQUEDA OPCIONAL */}
+        <button
+          onClick={handleManualSearch}
+          disabled={!searchTerm.trim() || loading}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+        >
+          {loading ? (
+            <Loader2
+              className="animate-spin"
+              size={16}
+            />
+          ) : (
+            <Search size={16} />
+          )}
+          Buscar
+        </button>
       </div>
 
-      {/* Panel de filtros expandible */}
-      {showFilters && showFiltersPanel && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 animate-in slide-in-from-top-2 duration-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Filtro de precio */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Rango de Precio ($)
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={localFilters.priceRange.min === 0 ? "" : localFilters.priceRange.min}
-                  onChange={(e) =>
-                    handleFilterChange({
-                      priceRange: {
-                        ...localFilters.priceRange,
-                        min: Number(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={localFilters.priceRange.max === Infinity ? "" : localFilters.priceRange.max}
-                  onChange={(e) =>
-                    handleFilterChange({
-                      priceRange: {
-                        ...localFilters.priceRange,
-                        max: Number(e.target.value) || Infinity,
-                      },
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Filtro de marcas */}
-            {availableBrands.length > 0 && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Marcas ({availableBrands.length})
-                </label>
-                <div className="max-h-32 overflow-y-auto space-y-2 bg-white border border-gray-200 rounded-md p-2">
-                  {availableBrands.map((brand) => (
-                    <label
-                      key={brand}
-                      className="flex items-center gap-2 text-sm hover:bg-gray-50 p-1 rounded cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={localFilters.selectedBrands.includes(brand)}
-                        onChange={() => handleBrandToggle(brand)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="flex-1">{brand}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Filtro de año */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Rango de Año
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Desde"
-                  min="1900"
-                  max={new Date().getFullYear()}
-                  value={localFilters.yearRange.min === 0 ? "" : localFilters.yearRange.min}
-                  onChange={(e) =>
-                    handleFilterChange({
-                      yearRange: {
-                        ...localFilters.yearRange,
-                        min: Number(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <input
-                  type="number"
-                  placeholder="Hasta"
-                  min="1900"
-                  max={new Date().getFullYear()}
-                  value={
-                    localFilters.yearRange.max === new Date().getFullYear()
-                      ? ""
-                      : localFilters.yearRange.max
-                  }
-                  onChange={(e) =>
-                    handleFilterChange({
-                      yearRange: {
-                        ...localFilters.yearRange,
-                        max: Number(e.target.value) || new Date().getFullYear(),
-                      },
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Filtro de stock */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Disponibilidad
-              </label>
-              <select
-                value={localFilters.stockFilter}
-                onChange={(e) =>
-                  handleFilterChange({
-                    stockFilter: e.target.value as "all" | "inStock" | "outOfStock",
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">Todos los productos</option>
-                <option value="inStock">Solo en stock</option>
-                <option value="outOfStock">Sin stock</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Botón limpiar filtros */}
-          {getActiveFiltersCount() > 0 && (
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md flex items-center gap-2 transition-colors"
-              >
-                <X size={14} />
-                Limpiar todos los filtros
-              </button>
+      {/* Estado de búsqueda */}
+      {searchTerm && (
+        <div className="mb-4">
+          {loading && (
+            <div className="flex items-center gap-2 text-blue-600">
+              <Loader2
+                className="animate-spin"
+                size={16}
+              />
+              <span className="text-sm">
+                Buscando &ldquo;{searchTerm}&rdquo;...
+              </span>
             </div>
           )}
-        </div>
-      )}
 
-      {/* Chips de filtros activos */}
-      {getActiveFiltersCount() > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {/* Chips de marcas */}
-          {localFilters.selectedBrands.map((brand) => (
-            <span
-              key={brand}
-              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-2 animate-in slide-in-from-left-1"
-            >
-              <span className="font-medium">{brand}</span>
-              <button
-                onClick={() => removeBrandFilter(brand)}
-                className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
-                aria-label={`Remover filtro de marca ${brand}`}
-              >
-                <X size={12} />
-              </button>
-            </span>
-          ))}
-
-          {/* Chip de stock */}
-          {localFilters.stockFilter !== "all" && (
-            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm flex items-center gap-2 animate-in slide-in-from-left-1">
-              <span className="font-medium">
-                {localFilters.stockFilter === "inStock" ? "En Stock" : "Sin Stock"}
-              </span>
-              <button
-                onClick={removeStockFilter}
-                className="hover:bg-green-200 rounded-full p-0.5 transition-colors"
-                aria-label="Remover filtro de stock"
-              >
-                <X size={12} />
-              </button>
-            </span>
+          {!loading && !error && results.length > 0 && (
+            <div className="text-green-600 text-sm">
+              ✅ {results.length} productos encontrados para &ldquo;{searchTerm}
+              &rdquo;
+            </div>
           )}
 
-          {/* Chip de precio */}
-          {(localFilters.priceRange.min > 0 || localFilters.priceRange.max < Infinity) && (
-            <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm flex items-center gap-2 animate-in slide-in-from-left-1">
-              <span className="font-medium">
-                ${localFilters.priceRange.min} - ${localFilters.priceRange.max === Infinity ? "∞" : localFilters.priceRange.max}
-              </span>
-              <button
-                onClick={() => handleFilterChange({ priceRange: { min: 0, max: Infinity } })}
-                className="hover:bg-purple-200 rounded-full p-0.5 transition-colors"
-                aria-label="Remover filtro de precio"
-              >
-                <X size={12} />
-              </button>
-            </span>
+          {!loading && !error && results.length === 0 && searchTerm && (
+            <div className="text-gray-500 text-sm">
+              No se encontraron productos para &ldquo;{searchTerm}&rdquo;
+            </div>
           )}
 
-          {/* Chip de año */}
-          {(localFilters.yearRange.min > 0 || localFilters.yearRange.max < new Date().getFullYear()) && (
-            <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm flex items-center gap-2 animate-in slide-in-from-left-1">
-              <span className="font-medium">
-                {localFilters.yearRange.min} - {localFilters.yearRange.max}
-              </span>
-              <button
-                onClick={() => handleFilterChange({ yearRange: { min: 0, max: new Date().getFullYear() } })}
-                className="hover:bg-orange-200 rounded-full p-0.5 transition-colors"
-                aria-label="Remover filtro de año"
-              >
-                <X size={12} />
-              </button>
-            </span>
+          {error && (
+            <div className="text-red-600 text-sm">❌ Error: {error}</div>
           )}
         </div>
       )}
@@ -356,4 +177,4 @@ const SearchBar: React.FC<SearchBarProps> = ({
   )
 }
 
-export default SearchBar
+export default SearchBarWithAPI

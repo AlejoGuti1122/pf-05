@@ -42,11 +42,8 @@ const initialValues: LoginFormValues = {
   password: "",
 }
 
-const LoginForm: React.FC<LoginFormProps> = ({
-  onSuccess,
-  onSwitchToRegister,
-}) => {
-  const { login, loading, error, isAuthenticated, clearError } = useAuth()
+const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
+  const { login, loading, error, clearError } = useAuth()
   const router = useRouter()
 
   // Limpiar errores al montar
@@ -55,18 +52,18 @@ const LoginForm: React.FC<LoginFormProps> = ({
   }, [clearError])
 
   // Redirigir si ya está autenticado
-  useEffect(() => {
-    console.log("🔍 isAuthenticated changed:", isAuthenticated)
+  // useEffect(() => {
+  //   console.log("🔍 isAuthenticated changed:", isAuthenticated)
 
-    if (isAuthenticated) {
-      console.log("🎉 Usuario autenticado, redirigiendo a /home...")
-      router.push("/home")
+  //   if (isAuthenticated) {
+  //     console.log("🎉 Usuario autenticado, redirigiendo a /home...")
+  //     router.push("/home")
 
-      if (onSuccess) {
-        onSuccess()
-      }
-    }
-  }, [isAuthenticated, onSuccess, router])
+  //     if (onSuccess) {
+  //       onSuccess()
+  //     }
+  //   }
+  // }, [isAuthenticated, onSuccess, router])
 
   // ✅ FUNCIÓN handleSubmit CORREGIDA
   const handleSubmit = async (
@@ -80,7 +77,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
         email: values.email.toLowerCase().trim(),
         password: values.password,
       })
-      
+
       console.log("✅ Login result:", result)
       console.log("🔍 Token en localStorage:", localStorage.getItem("token"))
       console.log("🔍 User en localStorage:", localStorage.getItem("user"))
@@ -94,7 +91,6 @@ const LoginForm: React.FC<LoginFormProps> = ({
 
       // ❌ Si llegamos aquí, algo salió mal
       console.error("❌ Login falló: no se recibió token o usuario válido")
-      
     } catch (err) {
       console.error("❌ Login error:", err)
       // Aquí puedes mostrar un mensaje de error al usuario

@@ -2,6 +2,7 @@
 
 import Navbar from "@/features/home/components/Navbar"
 import ProductCardsList from "@/features/home/components/ProductCardList"
+import SearchBar from "@/features/home/components/Searchbar"
 
 import React, { useState } from "react"
 
@@ -29,6 +30,12 @@ const PageHome = () => {
             </p>
           </div>
         </section>
+        <div>
+          <SearchBar
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+          />
+        </div>
 
         {/* Products Section */}
         <section>

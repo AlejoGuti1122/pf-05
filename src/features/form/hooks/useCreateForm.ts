@@ -2,10 +2,7 @@
 // hooks/useCreateProductClean.ts
 import { useState } from "react"
 
-import {
-  CreateProductClean,
-  CreateProductResponseClean,
-} from "../types/productClean"
+import { CreateProductResponseClean } from "../types/productClean"
 import { productServiceClean } from "../services/create"
 
 interface UseCreateProductCleanReturn {
@@ -13,7 +10,7 @@ interface UseCreateProductCleanReturn {
   error: string | null
   success: boolean
   createProduct: (
-    data: CreateProductClean
+    data: FormData // ✅ CAMBIAR DE CreateProductClean A FormData
   ) => Promise<CreateProductResponseClean>
   clearStatus: () => void
 }
@@ -24,17 +21,28 @@ export const useCreateProductClean = (): UseCreateProductCleanReturn => {
   const [success, setSuccess] = useState(false)
 
   const createProduct = async (
-    data: CreateProductClean
+    data: FormData // ✅ CAMBIAR EL TIPO AQUÍ TAMBIÉN
   ): Promise<CreateProductResponseClean> => {
-    console.log("🎯 Hook Clean - Starting creation")
-    console.log("🔍 Data received in hook:", data)
+    console.log("🎯 Hook Clean - Starting creation with FormData")
+
+    // ✅ DEBUG: Ver contenido del FormData que llega al hook
+    console.log("🔍 FormData received in hook:")
+    for (const [key, value] of data.entries()) {
+      if (value instanceof File) {
+        console.log(
+          `  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`
+        )
+      } else {
+        console.log(`  ${key}: ${value}`)
+      }
+    }
 
     setLoading(true)
     setError(null)
     setSuccess(false)
 
     try {
-      // ✅ LLAMADA DIRECTA SIN MODIFICACIONES
+      // ✅ LLAMADA DIRECTA CON FORMDATA
       const result = await productServiceClean.createProduct(data)
 
       console.log("✅ Hook Clean - Product created:", result)

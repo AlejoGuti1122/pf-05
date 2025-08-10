@@ -1,14 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // components/ProductFormFields.tsx
-import React from 'react'
-import { ErrorMessage } from 'formik'
+import React from "react"
+import { ErrorMessage } from "formik"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Package, Tag, Calendar, Settings, Gauge, ShoppingCart, ImageIcon } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Package,
+  Tag,
+  Calendar,
+  Settings,
+  Gauge,
+  ShoppingCart,
+} from "lucide-react"
 
-import Image from 'next/image'
-import { Category, ProductFormValues } from '../../types/product-form'
+import { Category, ProductFormValues } from "../../types/product-form"
 
 interface ProductFormFieldsProps {
   values: ProductFormValues
@@ -33,7 +45,6 @@ const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
 }) => {
   return (
     <div className="space-y-6">
-      
       {/* Información Básica */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="md:col-span-2">
@@ -45,7 +56,10 @@ const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
 
         {/* Nombre */}
         <div className="space-y-2">
-          <Label htmlFor="name" className="flex items-center gap-2">
+          <Label
+            htmlFor="name"
+            className="flex items-center gap-2"
+          >
             <Tag className="h-4 w-4" />
             Nombre del Producto *
           </Label>
@@ -56,14 +70,21 @@ const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
             value={values.name}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={touched.name && errors.name ? 'border-red-500' : ''}
+            className={touched.name && errors.name ? "border-red-500" : ""}
           />
-          <ErrorMessage name="name" component="p" className="text-sm text-red-500" />
+          <ErrorMessage
+            name="name"
+            component="p"
+            className="text-sm text-red-500"
+          />
         </div>
 
         {/* Precio */}
         <div className="space-y-2">
-          <Label htmlFor="price" className="flex items-center gap-2">
+          <Label
+            htmlFor="price"
+            className="flex items-center gap-2"
+          >
             <Gauge className="h-4 w-4" />
             Precio ($) *
           </Label>
@@ -76,14 +97,21 @@ const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
             value={values.price}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={touched.price && errors.price ? 'border-red-500' : ''}
+            className={touched.price && errors.price ? "border-red-500" : ""}
           />
-          <ErrorMessage name="price" component="p" className="text-sm text-red-500" />
+          <ErrorMessage
+            name="price"
+            component="p"
+            className="text-sm text-red-500"
+          />
         </div>
 
         {/* Stock */}
         <div className="space-y-2">
-          <Label htmlFor="stock" className="flex items-center gap-2">
+          <Label
+            htmlFor="stock"
+            className="flex items-center gap-2"
+          >
             <ShoppingCart className="h-4 w-4" />
             Stock *
           </Label>
@@ -95,34 +123,56 @@ const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
             value={values.stock}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={touched.stock && errors.stock ? 'border-red-500' : ''}
+            className={touched.stock && errors.stock ? "border-red-500" : ""}
           />
-          <ErrorMessage name="stock" component="p" className="text-sm text-red-500" />
+          <ErrorMessage
+            name="stock"
+            component="p"
+            className="text-sm text-red-500"
+          />
         </div>
 
         {/* Categoría */}
         <div className="space-y-2">
-          <Label htmlFor="categoryId" className="flex items-center gap-2">
+          <Label
+            htmlFor="categoryId"
+            className="flex items-center gap-2"
+          >
             <Tag className="h-4 w-4" />
             Categoría *
           </Label>
           <Select
             value={values.categoryId}
-            onValueChange={(value) => setFieldValue('categoryId', value)}
+            onValueChange={(value) => setFieldValue("categoryId", value)}
             disabled={loadingCategories}
           >
-            <SelectTrigger className={touched.categoryId && errors.categoryId ? 'border-red-500' : ''}>
-              <SelectValue placeholder={loadingCategories ? "Cargando..." : "Seleccionar categoría"} />
+            <SelectTrigger
+              className={
+                touched.categoryId && errors.categoryId ? "border-red-500" : ""
+              }
+            >
+              <SelectValue
+                placeholder={
+                  loadingCategories ? "Cargando..." : "Seleccionar categoría"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
+                <SelectItem
+                  key={category.id}
+                  value={category.id}
+                >
                   {category.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <ErrorMessage name="categoryId" component="p" className="text-sm text-red-500" />
+          <ErrorMessage
+            name="categoryId"
+            component="p"
+            className="text-sm text-red-500"
+          />
         </div>
       </div>
 
@@ -145,9 +195,13 @@ const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
             value={values.brand}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={touched.brand && errors.brand ? 'border-red-500' : ''}
+            className={touched.brand && errors.brand ? "border-red-500" : ""}
           />
-          <ErrorMessage name="brand" component="p" className="text-sm text-red-500" />
+          <ErrorMessage
+            name="brand"
+            component="p"
+            className="text-sm text-red-500"
+          />
         </div>
 
         {/* Modelo */}
@@ -160,14 +214,21 @@ const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
             value={values.model}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={touched.model && errors.model ? 'border-red-500' : ''}
+            className={touched.model && errors.model ? "border-red-500" : ""}
           />
-          <ErrorMessage name="model" component="p" className="text-sm text-red-500" />
+          <ErrorMessage
+            name="model"
+            component="p"
+            className="text-sm text-red-500"
+          />
         </div>
 
         {/* Año */}
         <div className="space-y-2">
-          <Label htmlFor="year" className="flex items-center gap-2">
+          <Label
+            htmlFor="year"
+            className="flex items-center gap-2"
+          >
             <Calendar className="h-4 w-4" />
             Año *
           </Label>
@@ -179,9 +240,13 @@ const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
             value={values.year}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={touched.year && errors.year ? 'border-red-500' : ''}
+            className={touched.year && errors.year ? "border-red-500" : ""}
           />
-          <ErrorMessage name="year" component="p" className="text-sm text-red-500" />
+          <ErrorMessage
+            name="year"
+            component="p"
+            className="text-sm text-red-500"
+          />
         </div>
 
         {/* Motor */}
@@ -194,47 +259,17 @@ const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
             value={values.engine}
             onChange={handleChange}
             onBlur={handleBlur}
-            className={touched.engine && errors.engine ? 'border-red-500' : ''}
+            className={touched.engine && errors.engine ? "border-red-500" : ""}
           />
-          <ErrorMessage name="engine" component="p" className="text-sm text-red-500" />
+          <ErrorMessage
+            name="engine"
+            component="p"
+            className="text-sm text-red-500"
+          />
         </div>
       </div>
 
-      {/* Imagen */}
-      <div className="space-y-2">
-        <Label htmlFor="imgUrl" className="flex items-center gap-2">
-          <ImageIcon className="h-4 w-4" />
-          URL de Imagen *
-        </Label>
-        <Input
-          id="imgUrl"
-          name="imgUrl"
-          type="url"
-          placeholder="https://ejemplo.com/imagen.jpg"
-          value={values.imgUrl}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          className={touched.imgUrl && errors.imgUrl ? 'border-red-500' : ''}
-        />
-        <ErrorMessage name="imgUrl" component="p" className="text-sm text-red-500" />
-        
-        {/* Preview de imagen */}
-        {values.imgUrl && !errors.imgUrl && (
-          <div className="mt-3 p-3 border rounded-lg bg-gray-50">
-            <p className="text-sm text-gray-600 mb-2">Vista previa:</p>
-            <Image
-              src={values.imgUrl}
-              alt="Preview"
-              width={30}
-              height={30}
-              className="w-32 h-32 object-cover rounded-lg border"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
-          </div>
-        )}
-      </div>
+      {/* ✅ ELIMINÉ TODA LA SECCIÓN DE URL DE IMAGEN */}
     </div>
   )
 }
