@@ -1,10 +1,8 @@
 "use client"
 
-
-
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { Menu, ShoppingCart, User, Zap, Star } from "lucide-react"
+import { Menu, ShoppingCart, User, Zap, Star, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -14,7 +12,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { motion, AnimatePresence, useScroll, useTransform, Variants } from "framer-motion"
+import {
+  motion,
+  AnimatePresence,
+  useScroll,
+  useTransform,
+  Variants,
+} from "framer-motion"
+import useAuth from "@/features/login/hooks/useAuth" // ✅ IMPORTAR HOOK
 
 const Navbar = () => {
   const [open, setOpen] = useState(false)
@@ -23,12 +28,24 @@ const Navbar = () => {
   const headerY = useTransform(scrollY, [0, 100], [0, -10])
   const headerOpacity = useTransform(scrollY, [0, 100], [1, 0.95])
 
+  // ✅ USAR HOOK DE AUTH
+  const { user, logout, loading } = useAuth()
+
   const navItems = [
     { label: "Inicio", href: "/", icon: "🏠" },
     { label: "Repuestos", href: "/repuestos", icon: "⚙️" },
     { label: "Categorías", href: "/categorias", icon: "📂" },
     { label: "Contacto", href: "/contacto", icon: "📞" },
   ]
+
+  // ✅ FUNCIÓN PARA MANEJAR LOGOUT
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+    }
+  }
 
   // Detectar scroll
   useEffect(() => {
@@ -48,9 +65,9 @@ const Navbar = () => {
       transition: {
         duration: 0.8,
         ease: "easeOut" as const,
-        staggerChildren: 0.1
-      }
-    }
+        staggerChildren: 0.1,
+      },
+    },
   }
 
   // Animaciones de items del nav
@@ -59,12 +76,12 @@ const Navbar = () => {
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.5 }
+      transition: { duration: 0.5 },
     },
     hover: {
       scale: 1.05,
-      transition: { duration: 0.2 }
-    }
+      transition: { duration: 0.2 },
+    },
   }
 
   // Animación del logo
@@ -76,14 +93,14 @@ const Navbar = () => {
       rotate: 0,
       transition: {
         duration: 1,
-        ease: "easeOut" as const
-      }
+        ease: "easeOut" as const,
+      },
     },
     hover: {
       scale: 1.1,
       rotate: [0, -5, 5, 0] as const,
-      transition: { duration: 0.5 }
-    }
+      transition: { duration: 0.5 },
+    },
   }
 
   // Partículas flotantes
@@ -118,7 +135,10 @@ const Navbar = () => {
       {/* Partículas de fondo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(8)].map((_, i) => (
-          <FloatingParticle key={i} delay={i * 0.5} />
+          <FloatingParticle
+            key={i}
+            delay={i * 0.5}
+          />
         ))}
       </div>
 
@@ -143,7 +163,13 @@ const Navbar = () => {
               transition={{ duration: 2, ease: "easeInOut" }}
             />
             <defs>
-              <linearGradient id="animatedGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <linearGradient
+                id="animatedGradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
                 <motion.stop
                   offset="0%"
                   stopColor="#dc2626"
@@ -171,8 +197,14 @@ const Navbar = () => {
       {/* Contenido principal */}
       <div className="relative z-10 flex items-center justify-between px-4 py-4 md:px-8 max-w-7xl mx-auto">
         {/* LOGO ultra animado */}
-        <motion.div variants={logoVariants} whileHover="hover">
-          <Link href="/" className="group relative">
+        <motion.div
+          variants={logoVariants}
+          whileHover="hover"
+        >
+          <Link
+            href="/"
+            className="group relative"
+          >
             <motion.div
               className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-700 rounded-xl blur-lg"
               animate={{
@@ -196,7 +228,10 @@ const Navbar = () => {
               animate={{ rotate: 360 }}
               transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
             >
-              <Star className="w-4 h-4 text-yellow-400" fill="currentColor" />
+              <Star
+                className="w-4 h-4 text-yellow-400"
+                fill="currentColor"
+              />
             </motion.div>
           </Link>
         </motion.div>
@@ -221,11 +256,12 @@ const Navbar = () => {
                 <motion.div
                   className="absolute inset-0 bg-gradient-to-r from-red-600/0 to-red-600/0 rounded-xl"
                   whileHover={{
-                    background: "linear-gradient(90deg, rgba(220,38,38,0.2), rgba(239,68,68,0.3))",
+                    background:
+                      "linear-gradient(90deg, rgba(220,38,38,0.2), rgba(239,68,68,0.3))",
                   }}
                   transition={{ duration: 0.3 }}
                 />
-                
+
                 {/* Ícono animado */}
                 <motion.span
                   className="text-lg"
@@ -234,7 +270,7 @@ const Navbar = () => {
                 >
                   {item.icon}
                 </motion.span>
-                
+
                 {/* Texto */}
                 <motion.span
                   className="relative z-10 text-white font-medium"
@@ -255,7 +291,8 @@ const Navbar = () => {
                 <motion.div
                   className="absolute inset-0 pointer-events-none"
                   whileHover={{
-                    background: "radial-gradient(circle, rgba(220,38,38,0.1) 0%, transparent 70%)",
+                    background:
+                      "radial-gradient(circle, rgba(220,38,38,0.1) 0%, transparent 70%)",
                   }}
                 />
               </Link>
@@ -268,7 +305,10 @@ const Navbar = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Link href="/form" className="relative group">
+            <Link
+              href="/form"
+              className="relative group"
+            >
               <motion.div
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white font-bold border-2 border-red-500 hover:border-red-400 transition-all duration-300 shadow-lg"
                 whileHover={{
@@ -291,12 +331,12 @@ const Navbar = () => {
                   <Zap className="w-4 h-4" />
                   Crear Repuesto
                 </motion.span>
-                
+
                 {/* Efecto de brillo */}
                 <motion.div
                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-xl"
                   animate={{
-                    x: ['-100%', '100%'],
+                    x: ["-100%", "100%"],
                   }}
                   transition={{
                     duration: 3,
@@ -314,7 +354,10 @@ const Navbar = () => {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Link href="/carrito" className="relative group">
+            <Link
+              href="/carrito"
+              className="relative group"
+            >
               <motion.div
                 className="p-3 rounded-2xl bg-gradient-to-br from-red-600/20 to-red-700/30 backdrop-blur-sm border border-red-500/30"
                 whileHover={{
@@ -334,7 +377,7 @@ const Navbar = () => {
                   <ShoppingCart className="w-5 h-5 text-white" />
                 </motion.div>
               </motion.div>
-              
+
               {/* Badge ultra animado */}
               <motion.div
                 className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center border-2 border-white"
@@ -359,45 +402,109 @@ const Navbar = () => {
             </Link>
           </motion.div>
 
-          {/* Avatar SIN giro mareante */}
-          <motion.div
-            variants={itemVariants}
-            whileHover={{ scale: 1.1 }}
-            className="relative"
-          >
-            <motion.div
-              className="p-1 rounded-full bg-gradient-to-r from-red-500 to-red-700"
-              whileHover={{
-                boxShadow: "0 0 20px rgba(220,38,38,0.6)",
-                scale: 1.05
-              }}
-              transition={{ duration: 0.3 }}
-            >
-              <motion.div whileHover={{ scale: 1.1 }}>
-                <Avatar className="w-10 h-10 cursor-pointer border-2 border-white">
-                  <AvatarFallback className="bg-gradient-to-br from-white to-gray-100 text-black font-bold">
-                    AG
-                  </AvatarFallback>
-                </Avatar>
+          {/* ✅ SECCIÓN DE USUARIO CON LOGOUT */}
+          {user ? (
+            <div className="flex items-center space-x-3">
+              {/* Avatar */}
+              <motion.div
+                variants={itemVariants}
+                whileHover={{ scale: 1.1 }}
+                className="relative"
+              >
+                <motion.div
+                  className="p-1 rounded-full bg-gradient-to-r from-red-500 to-red-700"
+                  whileHover={{
+                    boxShadow: "0 0 20px rgba(220,38,38,0.6)",
+                    scale: 1.05,
+                  }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <motion.div whileHover={{ scale: 1.1 }}>
+                    <Avatar className="w-10 h-10 cursor-pointer border-2 border-white">
+                      <AvatarFallback className="bg-gradient-to-br from-white to-gray-100 text-black font-bold">
+                        {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </motion.div>
+                </motion.div>
+
+                {/* Pulso sutil */}
+                <motion.div
+                  className="absolute inset-0 border-2 border-red-400/30 rounded-full"
+                  animate={{
+                    scale: [1, 1.1, 1],
+                    opacity: [0.3, 0.6, 0.3],
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
               </motion.div>
-            </motion.div>
-            
-            {/* Pulso sutil en lugar de giro */}
+
+              {/* ✅ BOTÓN LOGOUT ÉPICO */}
+              <motion.div
+                variants={itemVariants}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <motion.button
+                  onClick={handleLogout}
+                  disabled={loading}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-gray-600 to-gray-700 text-white font-medium border-2 border-gray-500 hover:border-gray-400 transition-all duration-300 shadow-lg disabled:opacity-50"
+                  whileHover={{
+                    boxShadow: "0 0 20px rgba(107,114,128,0.6)",
+                    background: "linear-gradient(90deg, #4b5563, #374151)",
+                  }}
+                >
+                  <motion.span
+                    className="flex items-center gap-2"
+                    whileHover={{ x: 2 }}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    {loading ? "Cerrando..." : "Logout"}
+                  </motion.span>
+                </motion.button>
+              </motion.div>
+            </div>
+          ) : (
+            /* Si no hay usuario, mostrar botón de login */
             <motion.div
-              className="absolute inset-0 border-2 border-red-400/30 rounded-full"
-              animate={{ 
-                scale: [1, 1.1, 1],
-                opacity: [0.3, 0.6, 0.3]
-              }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </motion.div>
+              variants={itemVariants}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Link
+                href="/"
+                className="relative group"
+              >
+                <motion.div
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold border-2 border-blue-500 hover:border-blue-400 transition-all duration-300 shadow-lg"
+                  whileHover={{
+                    boxShadow: "0 0 25px rgba(59,130,246,0.6)",
+                  }}
+                >
+                  <motion.span
+                    className="flex items-center gap-2"
+                    whileHover={{ x: 2 }}
+                  >
+                    <User className="w-4 h-4" />
+                    Iniciar Sesión
+                  </motion.span>
+                </motion.div>
+              </Link>
+            </motion.div>
+          )}
         </motion.nav>
 
         {/* Mobile Menu Button épico */}
-        <Sheet open={open} onOpenChange={setOpen}>
+        <Sheet
+          open={open}
+          onOpenChange={setOpen}
+        >
           <SheetTrigger asChild>
-            <motion.div 
+            <motion.div
               className="md:hidden"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
@@ -423,11 +530,14 @@ const Navbar = () => {
               </Button>
             </motion.div>
           </SheetTrigger>
-          
+
           {/* Mobile Menu ultra dinámico */}
-          <SheetContent side="left" className="w-[300px] bg-black border-r border-red-500/30 overflow-hidden">
+          <SheetContent
+            side="left"
+            className="w-[300px] bg-black border-r border-red-500/30 overflow-hidden"
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-red-900/20 to-black" />
-            
+
             <SheetHeader className="border-b border-red-500/20 pb-4 relative z-10">
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
@@ -454,7 +564,7 @@ const Navbar = () => {
                 whileHover={{ x: 10 }}
               >
                 <Link
-                  href="/create-product"
+                  href="/form"
                   className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl bg-gradient-to-r from-red-600/30 to-red-700/20 border border-red-500/30 hover:from-red-600/50 hover:to-red-700/40 transition-all duration-300 mb-2"
                   onClick={() => setOpen(false)}
                 >
@@ -499,6 +609,37 @@ const Navbar = () => {
                   </Link>
                 </motion.div>
               ))}
+
+              {/* ✅ LOGOUT EN MOBILE */}
+              {user && (
+                <motion.div
+                  initial={{ opacity: 0, x: -50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 }}
+                  whileHover={{ x: 10 }}
+                  className="mt-4 pt-4 border-t border-red-500/20"
+                >
+                  <button
+                    onClick={handleLogout}
+                    disabled={loading}
+                    className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl hover:bg-gradient-to-r hover:from-gray-600/20 hover:to-gray-700/10 transition-all duration-300 w-full text-left disabled:opacity-50"
+                  >
+                    <motion.span
+                      className="text-2xl"
+                      whileHover={{ scale: 1.3, rotate: 15 }}
+                    >
+                      🚪
+                    </motion.span>
+                    <span className="text-lg">
+                      {loading ? "Cerrando..." : "Cerrar Sesión"}
+                    </span>
+                    <motion.div
+                      className="ml-auto w-2 h-2 bg-gray-500 rounded-full opacity-0 group-hover:opacity-100"
+                      whileHover={{ scale: 1.5 }}
+                    />
+                  </button>
+                </motion.div>
+              )}
             </motion.div>
 
             {/* Efectos de fondo en mobile */}

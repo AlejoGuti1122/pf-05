@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// services/authService.ts - VERSIÓN ACTUALIZADA
+// services/authService.ts - VERSIÓN ACTUALIZADA CON LOGOUT
 
 import {
   AuthResponse,
@@ -109,6 +109,40 @@ class AuthService {
     return response.json()
   }
 
+  // ✅ NUEVA FUNCIÓN LOGOUT CON LLAMADA AL BACKEND
+  async logout(): Promise<void> {
+    const token = this.getToken()
+
+    // ✅ Intentar cerrar sesión en el backend si hay token
+    if (token) {
+      try {
+        console.log("🔄 Cerrando sesión en el backend...")
+
+        const response = await fetch(`${this.baseURL}/auth/logout`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (response.ok) {
+          console.log("✅ Sesión cerrada correctamente en el backend")
+        } else {
+          console.warn("⚠️ Error cerrando sesión en backend:", response.status)
+        }
+      } catch (error) {
+        console.error("❌ Error en logout del servidor:", error)
+        // Continuar con logout local aunque falle el servidor
+      }
+    }
+
+    // ✅ Limpiar datos locales SIEMPRE (aunque falle el backend)
+    this.removeToken()
+    this.removeUser()
+    console.log("🧹 Datos locales limpiados")
+  }
+
   // ✅ MÉTODO MEJORADO PARA VERIFICAR SI ESTÁ AUTENTICADO
   isAuthenticated(): boolean {
     const token = this.getToken()
@@ -130,7 +164,8 @@ class AuthService {
       const currentTime = Math.floor(Date.now() / 1000)
       if (decodedToken.exp && decodedToken.exp < currentTime) {
         console.log("❌ Token expirado")
-        this.logout() // Limpiar datos expirados
+        this.removeToken() // ✅ Solo limpiar localmente si está expirado
+        this.removeUser()
         return false
       }
 
@@ -205,11 +240,6 @@ class AuthService {
     } catch (error) {
       console.error("Error removing user:", error)
     }
-  }
-
-  logout(): void {
-    this.removeToken()
-    this.removeUser()
   }
 
   isAdmin(): boolean {

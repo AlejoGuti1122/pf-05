@@ -52,14 +52,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
         <Image
           src={product.imgUrl}
           alt={product.name}
-          width={400} // Cambiado de 20 a 400
-          height={400} // Cambiado de 20 a 400
+          width={400}
+          height={400}
           className="w-full h-48 object-cover transition-transform duration-300 hover:scale-105"
           onError={(e) => {
-            // CAMBIA ESTA URL por una que funcione o una imagen local
-            e.currentTarget.src = "https://picsum.photos/400/400" // Funciona mejor
-            // O mejor aún, usa una imagen local:
-            // e.currentTarget.src = "/no-image.png"
+            // ✅ EVITAR LOOP INFINITO
+            const target = e.target as HTMLImageElement
+            if (!target.dataset.fallback) {
+              target.dataset.fallback = "true"
+              target.src = "https://picsum.photos/400/400"
+            }
           }}
         />
 
