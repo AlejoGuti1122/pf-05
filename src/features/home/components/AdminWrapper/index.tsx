@@ -1,9 +1,8 @@
 // components/AdminProtectedWrapper.tsx
 "use client"
 
-import React from "react"
+import React, { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 import { Loader2, AlertTriangle, ShieldCheck } from "lucide-react"
 import useAuth from "@/features/login/hooks/useAuth"
 
@@ -16,15 +15,32 @@ const AdminProtectedWrapper: React.FC<AdminProtectedWrapperProps> = ({
   children,
   redirectTo = "/home",
 }) => {
-  const { user, loading } = useAuth()
+  const { user, isAdmin, loading } = useAuth() // ✅ CAMBIO: Usar isAdmin directamente
   const router = useRouter()
 
   useEffect(() => {
     // Si terminó de cargar y no es admin, redirigir
-    if (!loading && (!user || user.isAdmin !== true)) {
-      router.push(redirectTo)
+    if (!loading && !isAdmin) {
+      console.log(
+        "❌ AdminWrapper - Acceso denegado. Redirigiendo a:",
+        redirectTo
+      )
+
+      // Pequeño delay para mostrar el mensaje
+      const timer = setTimeout(() => {
+        router.push(redirectTo)
+      }, 1500)
+
+      return () => clearTimeout(timer)
     }
-  }, [user, loading, router, redirectTo])
+
+    if (!loading && isAdmin) {
+      console.log(
+        "✅ AdminWrapper - Acceso permitido para admin:",
+        user?.name || user?.email
+      )
+    }
+  }, [isAdmin, loading, router, redirectTo, user])
 
   // Mostrar loading mientras verifica
   if (loading) {
@@ -34,7 +50,7 @@ const AdminProtectedWrapper: React.FC<AdminProtectedWrapperProps> = ({
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
-              Verificando permisos...
+              Verificando permisos de administrador...
             </h2>
             <p className="text-gray-600">
               Por favor espera mientras validamos tu acceso
@@ -45,8 +61,8 @@ const AdminProtectedWrapper: React.FC<AdminProtectedWrapperProps> = ({
     )
   }
 
-  // Si no hay usuario o no es admin, mostrar mensaje antes del redirect
-  if (!user || user.isAdmin !== true) {
+  // Si no es admin, mostrar mensaje antes del redirect
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4 border-l-4 border-red-500">
@@ -57,7 +73,7 @@ const AdminProtectedWrapper: React.FC<AdminProtectedWrapperProps> = ({
             </h2>
             <p className="text-red-600 mb-4">
               {!user
-                ? "Debes iniciar sesión para acceder a esta página"
+                ? "Debes iniciar sesión como administrador para acceder a esta página"
                 : "Solo los administradores pueden acceder a esta página"}
             </p>
             <div className="text-sm text-gray-500">Redirigiendo...</div>
@@ -75,7 +91,7 @@ const AdminProtectedWrapper: React.FC<AdminProtectedWrapperProps> = ({
         <div className="flex items-center justify-center gap-2 text-sm">
           <ShieldCheck className="w-4 h-4" />
           <span>
-            Sesión de administrador activa - {user.name || user.email}
+            Sesión de administrador activa - {user?.name || user?.email}
           </span>
         </div>
       </div>

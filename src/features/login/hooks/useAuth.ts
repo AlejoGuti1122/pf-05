@@ -1,55 +1,83 @@
-// hooks/useAuth.ts
+// hooks/useAuth.ts - VERSIÓN SIMPLIFICADA
 import { useState, useCallback, useEffect } from "react"
 import { User, LoginRequest, AuthResponse } from "../types/login"
 import { RegisterRequest } from "../../register/types/register"
 import { authService } from "../services/login-service"
 
 interface UseAuthReturn {
-  // Estados
   user: User | null
   isAuthenticated: boolean
   isAdmin: boolean
   loading: boolean
   error: string | null
-
-  // Acciones
   login: (credentials: LoginRequest) => Promise<AuthResponse>
   register: (userData: RegisterRequest) => Promise<AuthResponse>
-  logout: () => Promise<void> // ✅ CAMBIAR A ASYNC
+  logout: () => Promise<void>
   clearError: () => void
 }
 
 const useAuth = (): UseAuthReturn => {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Inicializar usuario desde localStorage
+  // ✅ INICIALIZACIÓN SIMPLIFICADA
   useEffect(() => {
-    const savedUser = authService.getUser()
-    if (savedUser) {
-      setUser(savedUser)
+    const initializeAuth = () => {
+      console.log("🔄 useAuth - Inicializando...")
+
+      try {
+        const savedUser = authService.getUser()
+        const isAuth = authService.isAuthenticated()
+
+        console.log("🔍 useAuth - savedUser:", savedUser)
+        console.log("🔍 useAuth - isAuthenticated:", isAuth)
+
+        if (savedUser && isAuth) {
+          setUser(savedUser)
+          console.log("✅ useAuth - Usuario configurado:", {
+            email: savedUser.email,
+            isAdmin: savedUser.isAdmin,
+            isSuperAdmin: savedUser.isSuperAdmin,
+          })
+        } else {
+          setUser(null)
+          console.log("❌ useAuth - No hay usuario válido")
+        }
+      } catch (err) {
+        console.error("❌ useAuth - Error en inicialización:", err)
+        setUser(null)
+        setError("Error al inicializar autenticación")
+      } finally {
+        setLoading(false)
+        console.log("✅ useAuth - Inicialización completada")
+      }
     }
+
+    initializeAuth()
   }, [])
 
-  // ✅ FUNCIÓN LOGIN
+  // ✅ LOGIN
   const login = useCallback(
     async (credentials: LoginRequest): Promise<AuthResponse> => {
       setLoading(true)
       setError(null)
 
       try {
+        console.log("🔄 useAuth - Iniciando login...")
         const response: AuthResponse = await authService.login(credentials)
 
-        // Actualizar estado local del hook
-        setUser(response.user)
+        console.log("🎯 useAuth - Login exitoso")
+        console.log("🎯 useAuth - Usuario recibido:", response.user)
 
-        console.log("🎯 Hook useAuth - Login exitoso:", response)
+        // Actualizar estado
+        setUser(response.user)
 
         return response
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Error al iniciar sesión"
+        console.error("❌ useAuth - Error en login:", errorMessage)
         setError(errorMessage)
         throw err
       } finally {
@@ -59,7 +87,7 @@ const useAuth = (): UseAuthReturn => {
     []
   )
 
-  // ✅ FUNCIÓN REGISTER
+  // ✅ REGISTER
   const register = useCallback(
     async (userData: RegisterRequest): Promise<AuthResponse> => {
       setLoading(true)
@@ -67,10 +95,7 @@ const useAuth = (): UseAuthReturn => {
 
       try {
         const response: AuthResponse = await authService.register(userData)
-
-        // Actualizar estado local del hook
         setUser(response.user)
-
         return response
       } catch (err) {
         const errorMessage =
@@ -84,28 +109,19 @@ const useAuth = (): UseAuthReturn => {
     []
   )
 
-  // ✅ FUNCIÓN LOGOUT ACTUALIZADA - ASYNC CON REDIRECCIÓN
+  // ✅ LOGOUT
   const logout = useCallback(async (): Promise<void> => {
     setLoading(true)
 
     try {
-      console.log("🔄 Iniciando logout...")
-
-      // ✅ Llamar al service async
+      console.log("🔄 useAuth - Iniciando logout...")
       await authService.logout()
-
-      // ✅ Limpiar estado del hook
       setUser(null)
       setError(null)
-
-      console.log("✅ Logout completado")
-
-      // ✅ Redirigir al login
+      console.log("✅ useAuth - Logout completado")
       window.location.href = "/"
     } catch (error) {
-      console.error("❌ Error durante logout:", error)
-
-      // ✅ Aún así limpiar estado local si hay error
+      console.error("❌ useAuth - Error en logout:", error)
       setUser(null)
       setError(null)
       window.location.href = "/"
@@ -118,9 +134,24 @@ const useAuth = (): UseAuthReturn => {
     setError(null)
   }, [])
 
-  // ✅ MEJORAR isAuthenticated PARA QUE USE EL authService
-  const isAuthenticated = authService.isAuthenticated()
-  const isAdmin = user?.isAdmin || user?.isSuperAdmin || false
+  // ✅ CALCULAR ESTADOS
+  const isAuthenticated = !!user && authService.isAuthenticated()
+  const isAdmin = user?.isAdmin === true || user?.isSuperAdmin === true
+
+  // ✅ DEBUG LOG CUANDO CAMBIE EL ESTADO
+  useEffect(() => {
+    if (!loading) {
+      console.log("🎯 useAuth - Estado actual:", {
+        hasUser: !!user,
+        userEmail: user?.email,
+        userIsAdmin: user?.isAdmin,
+        userIsSuperAdmin: user?.isSuperAdmin,
+        calculatedIsAuthenticated: isAuthenticated,
+        calculatedIsAdmin: isAdmin,
+        loading,
+      })
+    }
+  }, [user, isAuthenticated, isAdmin, loading])
 
   return {
     user,
