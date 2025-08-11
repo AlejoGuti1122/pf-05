@@ -237,7 +237,7 @@ const Navbar = () => {
           whileHover="hover"
         >
           <Link
-            href="/"
+            href="/home"
             className="group relative"
           >
             <motion.div
@@ -556,7 +556,7 @@ const Navbar = () => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <SheetTitle className="text-white text-2xl font-bold bg-gradient-to-r from-white to-red-200 bg-clip-text text-transparent">
+                <SheetTitle className="text-white text-2xl font-bold bg-gradient-to-r from-white to-red-200 bg-clip-text">
                   AutoParts
                 </SheetTitle>
               </motion.div>

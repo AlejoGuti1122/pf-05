@@ -36,19 +36,20 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
     onFilterChange({ selectedBrands: newSelectedBrands })
   }
 
+  // ✅ FUNCIÓN SIMPLIFICADA - SOLO MARCAS Y STOCK
   const getActiveFiltersCount = () => {
     let count = 0
-    if (filters.priceRange.min > 0 || filters.priceRange.max < Infinity) count++
+
+    // Marcas activas si hay alguna seleccionada
     if (filters.selectedBrands.length > 0) count++
-    if (
-      filters.yearRange.min > 0 ||
-      filters.yearRange.max < new Date().getFullYear()
-    )
-      count++
+
+    // Stock activo si no es "all"
     if (filters.stockFilter !== "all") count++
+
     return count
   }
 
+  // ✅ FUNCIONES PARA REMOVER FILTROS - SOLO LAS NECESARIAS
   const removeBrandFilter = (brand: string) => {
     handleBrandToggle(brand)
   }
@@ -62,113 +63,33 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
       {/* Panel de filtros */}
       {showFilters && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Filtro de precio */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Rango de Precio
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={
-                    filters.priceRange.min === 0 ? "" : filters.priceRange.min
-                  }
-                  onChange={(e) =>
-                    onFilterChange({
-                      priceRange: {
-                        ...filters.priceRange,
-                        min: Number(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  className="w-full px-2 py-1 border rounded text-sm"
-                />
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={
-                    filters.priceRange.max === Infinity
-                      ? ""
-                      : filters.priceRange.max
-                  }
-                  onChange={(e) =>
-                    onFilterChange({
-                      priceRange: {
-                        ...filters.priceRange,
-                        max: Number(e.target.value) || Infinity,
-                      },
-                    })
-                  }
-                  className="w-full px-2 py-1 border rounded text-sm"
-                />
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Filtro de marcas */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Marcas
               </label>
               <div className="max-h-32 overflow-y-auto space-y-1">
-                {availableBrands.map((brand) => (
-                  <label
-                    key={brand}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filters.selectedBrands.includes(brand)}
-                      onChange={() => handleBrandToggle(brand)}
-                      className="rounded"
-                    />
-                    {brand}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Filtro de año */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Rango de Año
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Desde"
-                  value={
-                    filters.yearRange.min === 0 ? "" : filters.yearRange.min
-                  }
-                  onChange={(e) =>
-                    onFilterChange({
-                      yearRange: {
-                        ...filters.yearRange,
-                        min: Number(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  className="w-full px-2 py-1 border rounded text-sm"
-                />
-                <input
-                  type="number"
-                  placeholder="Hasta"
-                  value={
-                    filters.yearRange.max === new Date().getFullYear()
-                      ? ""
-                      : filters.yearRange.max
-                  }
-                  onChange={(e) =>
-                    onFilterChange({
-                      yearRange: {
-                        ...filters.yearRange,
-                        max: Number(e.target.value) || new Date().getFullYear(),
-                      },
-                    })
-                  }
-                  className="w-full px-2 py-1 border rounded text-sm"
-                />
+                {availableBrands.length > 0 ? (
+                  availableBrands.map((brand) => (
+                    <label
+                      key={brand}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.selectedBrands.includes(brand)}
+                        onChange={() => handleBrandToggle(brand)}
+                        className="rounded"
+                      />
+                      {brand}
+                    </label>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    Haz una búsqueda para ver marcas disponibles
+                  </p>
+                )}
               </div>
             </div>
 
@@ -208,9 +129,10 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
         </div>
       )}
 
-      {/* Chips de filtros activos */}
+      {/* ✅ CHIPS DE FILTROS ACTIVOS - SOLO MARCAS Y STOCK */}
       {getActiveFiltersCount() > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
+          {/* Chips de marcas */}
           {filters.selectedBrands.map((brand) => (
             <span
               key={brand}
@@ -222,8 +144,10 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
               </button>
             </span>
           ))}
+
+          {/* Chip de stock */}
           {filters.stockFilter !== "all" && (
-            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm flex items-center gap-1">
+            <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-sm flex items-center gap-1">
               {filters.stockFilter === "inStock" ? "En Stock" : "Sin Stock"}
               <button onClick={removeStockFilter}>
                 <X size={12} />
@@ -260,10 +184,8 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
         <div className="flex flex-wrap gap-2 items-center">
           <span className="text-sm text-gray-600 mr-2">Ordenar por:</span>
           {[
-            { key: "name" as const, label: "Nombre" },
-            { key: "brand" as const, label: "Marca" },
-            { key: "price" as const, label: "Precio" },
-            { key: "year" as const, label: "Año" },
+            { key: "name" as const, label: "Nombre", defaultOrder: "asc" },
+            { key: "brand" as const, label: "Marca", defaultOrder: "asc" },
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -276,12 +198,17 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
             >
               {label}
               {sortBy === key && (
-                <SortAsc
-                  size={14}
-                  className={`transform ${
-                    sortOrder === "desc" ? "rotate-180" : ""
-                  }`}
-                />
+                <div className="flex items-center gap-1">
+                  <SortAsc
+                    size={14}
+                    className={`transform ${
+                      sortOrder === "desc" ? "rotate-180" : ""
+                    }`}
+                  />
+                  <span className="text-xs">
+                    {sortOrder === "asc" ? "A-Z" : "Z-A"}
+                  </span>
+                </div>
               )}
             </button>
           ))}

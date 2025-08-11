@@ -12,15 +12,14 @@ import Image from "next/image"
 import React, { useState, useMemo } from "react"
 
 const PageHome = () => {
-  const [searchTerm, setSearchTerm] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
 
-  // ✅ Estados para filtros - CORREGIDO: stockFilter por defecto "all"
+  // ✅ FILTROS SIMPLIFICADOS - SOLO MARCAS Y STOCK
   const [filters, setFilters] = useState<FilterState>({
-    priceRange: { min: 0, max: Infinity },
+    priceRange: { min: 0, max: 0 }, // Ya no se usa pero mantenemos por compatibilidad
     selectedBrands: [],
-    yearRange: { min: 0, max: new Date().getFullYear() },
-    stockFilter: "all", // ✅ CORREGIDO: Cambiar de "inStock" a "all"
+    yearRange: { min: 0, max: 0 }, // Ya no se usa pero mantenemos por compatibilidad
+    stockFilter: "all",
   })
 
   const [sortBy, setSortBy] = useState<"name" | "price" | "brand" | "year">(
@@ -29,81 +28,111 @@ const PageHome = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [showFilters, setShowFilters] = useState(false)
 
-  // ✅ MARCAS DISPONIBLES (extraídas de searchResults)
+  // MARCAS DISPONIBLES
   const availableBrands = useMemo(() => {
     if (!searchResults.length) return []
     return [...new Set(searchResults.map((p: any) => p.brand))].sort()
   }, [searchResults])
 
-  // ✅ Handlers para búsqueda
+  // Handlers para búsqueda
   const handleResultsChange = (results: any[]) => {
     console.log("🎯 PADRE - Results received:", results)
     setSearchResults(results)
   }
 
-  const handleSearchTermChange = (term: string) => {
-    setSearchTerm(term)
-  }
-
-  // ✅ FILTRAR searchResults BASADO EN LOS FILTROS
+  // ✅ LÓGICA DE FILTRADO SIMPLIFICADA - SOLO MARCAS Y STOCK
   const filteredSearchResults = useMemo(() => {
     if (!searchResults.length) return []
 
+    console.log("🔍 Filtros actuales:", filters)
+
     return searchResults
       .filter((product: any) => {
-        // Filtro de precio
-        const price = Number(product.price)
-        const matchesPrice =
-          price >= filters.priceRange.min && price <= filters.priceRange.max
-
-        // Filtro de marca
-        const matchesBrand =
-          filters.selectedBrands.length === 0 ||
-          filters.selectedBrands.includes(product.brand)
-
-        // Filtro de año
-        const year = Number(product.year)
-        const matchesYear =
-          year >= filters.yearRange.min && year <= filters.yearRange.max
-
-        // Filtro de stock
-        const matchesStock =
-          filters.stockFilter === "all" ||
-          (filters.stockFilter === "inStock" && product.stock > 0) ||
-          (filters.stockFilter === "outOfStock" && product.stock === 0)
-
-        return matchesPrice && matchesBrand && matchesYear && matchesStock
-      })
-      .sort((a: any, b: any) => {
-        // Ordenamiento
-        let aValue: string | number = a[sortBy]
-        let bValue: string | number = b[sortBy]
-
-        if (sortBy === "price") {
-          aValue = Number(aValue)
-          bValue = Number(bValue)
-        } else {
-          aValue = String(aValue).toLowerCase()
-          bValue = String(bValue).toLowerCase()
+        // ✅ FILTRO DE MARCA - ÚNICO FILTRO PRINCIPAL
+        if (filters.selectedBrands.length > 0) {
+          if (!filters.selectedBrands.includes(product.brand)) {
+            console.log(`❌ ${product.name} filtrado por marca`)
+            return false
+          }
         }
 
-        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1
-        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1
-        return 0
+        // ✅ FILTRO DE STOCK - ÚNICO FILTRO SECUNDARIO
+        if (filters.stockFilter !== "all") {
+          const hasStock = product.stock > 0
+          if (filters.stockFilter === "inStock" && !hasStock) {
+            console.log(`❌ ${product.name} filtrado por stock (sin stock)`)
+            return false
+          }
+          if (filters.stockFilter === "outOfStock" && hasStock) {
+            console.log(`❌ ${product.name} filtrado por stock (con stock)`)
+            return false
+          }
+        }
+
+        console.log(`✅ ${product.name} pasa todos los filtros`)
+        return true
+      })
+      .sort((a: any, b: any) => {
+        // ✅ ORDENAMIENTO CORREGIDO - SEPARAR LÓGICA NUMÉRICA Y ALFABÉTICA
+        if (sortBy === "price" || sortBy === "year") {
+          // ✅ Para números: convertir a Number y comparar directamente
+          const aValue = Number(a[sortBy])
+          const bValue = Number(b[sortBy])
+
+          console.log(
+            `🔢 Ordenando ${sortBy}: ${a.name} (${aValue}) vs ${b.name} (${bValue})`
+          )
+
+          if (sortOrder === "asc") {
+            return aValue - bValue // ✅ Ascendente: menor a mayor
+          } else {
+            return bValue - aValue // ✅ Descendente: mayor a menor
+          }
+        } else {
+          // ✅ Para texto: convertir a string y comparar alfabéticamente
+          const aValue = String(a[sortBy]).toLowerCase()
+          const bValue = String(b[sortBy]).toLowerCase()
+
+          if (sortOrder === "asc") {
+            return aValue.localeCompare(bValue) // ✅ A-Z
+          } else {
+            return bValue.localeCompare(aValue) // ✅ Z-A
+          }
+        }
       })
   }, [searchResults, filters, sortBy, sortOrder])
 
-  // ✅ HANDLERS PARA FILTROS
+  // ✅ CONTAR FILTROS ACTIVOS - SOLO MARCAS Y STOCK
+  const activeFiltersCount = useMemo(() => {
+    let count = 0
+
+    // Marcas activas si hay alguna seleccionada
+    if (filters.selectedBrands.length > 0) count++
+
+    // Stock activo si no es "all"
+    if (filters.stockFilter !== "all") count++
+
+    return count
+  }, [filters])
+
+  // HANDLERS PARA FILTROS
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
+    console.log("🔄 Cambiando filtros:", newFilters)
     setFilters((prev: FilterState) => ({ ...prev, ...newFilters }))
   }
 
   const handleSortChange = (newSortBy: typeof sortBy) => {
     if (sortBy === newSortBy) {
+      // ✅ Si ya está seleccionado, cambiar orden
       setSortOrder((prev: "asc" | "desc") => (prev === "asc" ? "desc" : "asc"))
     } else {
+      // ✅ CAMBIO: Para precio y año, empezar con desc (mayor a menor)
       setSortBy(newSortBy)
-      setSortOrder("asc")
+      if (newSortBy === "price" || newSortBy === "year") {
+        setSortOrder("desc") // ✅ Mayor a menor por defecto
+      } else {
+        setSortOrder("asc") // ✅ A-Z para texto
+      }
     }
   }
 
@@ -111,12 +140,14 @@ const PageHome = () => {
     setShowFilters((prev: boolean) => !prev)
   }
 
+  // ✅ LIMPIAR FILTROS - SOLO MARCAS Y STOCK
   const handleClearFilters = () => {
+    console.log("🧹 Limpiando filtros")
     setFilters({
-      priceRange: { min: 0, max: Infinity },
+      priceRange: { min: 0, max: 0 },
       selectedBrands: [],
-      yearRange: { min: 0, max: new Date().getFullYear() },
-      stockFilter: "all", // ✅ CORREGIDO: Cambiar de "inStock" a "all"
+      yearRange: { min: 0, max: 0 },
+      stockFilter: "all",
     })
   }
 
@@ -127,26 +158,26 @@ const PageHome = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <section className="mb-8">
+        <section className="mb-8 mt-24">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-800 mb-4">
               Nuestros Productos
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Encuentra los mejores vehículos con la mejor calidad y garantía
+              Encuentra los mejores repuestos de vehículos con la mejor calidad y garantía
             </p>
           </div>
         </section>
 
-        {/* ✅ SearchBar restaurado */}
+        {/* SearchBar */}
         <div>
           <SearchBarWithAPI
             onResultsChange={handleResultsChange}
-            onSearchTermChange={handleSearchTermChange}
+            onSearchTermChange={() => {}} // ✅ Función vacía si no necesitas el término
           />
         </div>
 
-        {/* ✅ Filtros SOLO cuando hay resultados de búsqueda */}
+        {/* Filtros SOLO cuando hay resultados de búsqueda */}
         {searchResults.length > 0 && (
           <div>
             <ProductFilters
@@ -164,13 +195,41 @@ const PageHome = () => {
           </div>
         )}
 
-        {/* ✅ Mostrar resultados de búsqueda FILTRADOS si los hay */}
+        {/* Mostrar resultados de búsqueda FILTRADOS */}
         {searchResults.length > 0 ? (
           <section className="mt-8">
             <h2 className="text-2xl font-bold mb-4">
               Resultados de búsqueda ({filteredSearchResults.length} de{" "}
               {searchResults.length})
+              {activeFiltersCount > 0 && (
+                <span className="text-sm font-normal text-blue-600 ml-2">
+                  • {activeFiltersCount} filtro
+                  {activeFiltersCount > 1 ? "s" : ""} aplicado
+                  {activeFiltersCount > 1 ? "s" : ""}
+                </span>
+              )}
             </h2>
+
+            {/* ✅ DEBUG INFO SIMPLIFICADO - TEMPORAL */}
+            {activeFiltersCount > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4 text-sm">
+                <strong>Filtros activos:</strong>
+                {filters.selectedBrands.length > 0 ? (
+                  <span className="ml-2 text-blue-700">
+                    Marcas: {filters.selectedBrands.join(", ")}
+                  </span>
+                ) : null}
+                {filters.stockFilter !== "all" ? (
+                  <span className="ml-2 text-blue-700">
+                    Stock:{" "}
+                    {filters.stockFilter === "inStock"
+                      ? "En Stock"
+                      : "Sin Stock"}
+                  </span>
+                ) : null}
+              </div>
+            )}
+
             {filteredSearchResults.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredSearchResults.map((product: any) => (
@@ -179,7 +238,6 @@ const PageHome = () => {
                     className="border p-4 rounded-lg bg-white shadow-md hover:shadow-lg transition-shadow"
                   >
                     <div className="flex gap-4">
-                      {/* ✅ IMAGEN A LA IZQUIERDA */}
                       <div className="flex-shrink-0">
                         <Image
                           src={product.imgUrl}
@@ -195,7 +253,6 @@ const PageHome = () => {
                         />
                       </div>
 
-                      {/* ✅ INFORMACIÓN A LA DERECHA */}
                       <div className="flex-1 min-w-0">
                         <h3
                           className="font-bold text-lg mb-2 text-gray-800 truncate"
@@ -230,29 +287,26 @@ const PageHome = () => {
                 ))}
               </div>
             ) : (
-              // Mensaje cuando no hay resultados después de filtrar
               <div className="text-center py-8">
-                <p className="text-gray-500">
+                <p className="text-gray-500 mb-2">
                   No se encontraron productos que coincidan con los filtros
                   aplicados.
                 </p>
                 <button
                   onClick={handleClearFilters}
-                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                 >
-                  Limpiar filtros
+                  Limpiar todos los filtros
                 </button>
               </div>
             )}
           </section>
         ) : (
-          /* ✅ Mostrar productos de la API cuando no hay búsqueda - CON FILTROS */
           <section>
-            {/* ✅ Filtros para ProductCardsList también */}
             <ProductFilters
               filters={filters}
               onFilterChange={handleFilterChange}
-              availableBrands={[]} // Se llenará desde useProductsFiltered
+              availableBrands={[]}
               sortBy={sortBy}
               sortOrder={sortOrder}
               onSortChange={handleSortChange}

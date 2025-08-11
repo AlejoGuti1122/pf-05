@@ -100,7 +100,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
   }
 
   return (
-    <div className="max-w-md mx-auto">
+    <div className="max-w-md mx-auto py-10 -mt-20">
       {/* Card limpio y moderno */}
       <Card className="bg-white border-0 shadow-2xl rounded-2xl overflow-hidden">
         {/* Borde superior rojo elegante */}
