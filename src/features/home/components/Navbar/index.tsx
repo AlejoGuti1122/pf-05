@@ -255,7 +255,7 @@ const Navbar = () => {
                 backgroundPosition: "100% 0%",
               }}
             >
-              AutoParts
+              RepuStore
             </motion.span>
             {/* Efectos de chispas */}
             <motion.div

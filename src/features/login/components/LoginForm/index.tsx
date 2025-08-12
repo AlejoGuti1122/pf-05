@@ -116,7 +116,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
               </div>
             </div>
             <CardTitle className="text-4xl font-black tracking-tight bg-gradient-to-r from-black via-red-600 to-black bg-clip-text text-transparent">
-              AutoParts
+              RepuStore
             </CardTitle>
           </div>
           <CardDescription className="text-gray-600 font-medium text-lg">
