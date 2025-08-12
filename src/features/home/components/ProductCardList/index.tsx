@@ -1,0 +1,385 @@
+// components/ProductCardsList.tsx
+import React, { useState } from "react"
+import {
+  Filter,
+  Heart,
+  Search,
+  ShoppingCart,
+  Eye,
+  Calendar,
+  Cog,
+} from "lucide-react"
+import Product from "../../types/products"
+import ProductDetailModal from "../ProductDetailModal"
+import { FilterState } from "../../types/filters"
+import useProductsFiltered from "../../hooks/useFilters"
+import Image from "next/image"
+
+interface ProductCardsListProps {
+  filters?: FilterState
+  sortBy?: "name" | "price" | "brand" | "year"
+  sortOrder?: "asc" | "desc"
+  className?: string
+}
+
+const ProductCardsList: React.FC<ProductCardsListProps> = ({
+  filters: externalFilters,
+  sortBy: externalSortBy = "name",
+  sortOrder: externalSortOrder = "asc",
+  className = "",
+}) => {
+  // Estados principales
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [cart, setCart] = useState<Product[]>([])
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [showProductDetail, setShowProductDetail] = useState(false)
+
+  // Filtros por defecto
+  const defaultFilters: FilterState = {
+    priceRange: { min: 0, max: Infinity },
+    selectedBrands: [],
+    yearRange: { min: 0, max: new Date().getFullYear() },
+    stockFilter: "inStock",
+  }
+
+  const filters = externalFilters || defaultFilters
+
+  // Hook personalizado para obtener productos filtrados
+  const {
+    products: allProducts,
+    loading,
+    error,
+    totalCount,
+    refetch,
+  } = useProductsFiltered({
+    searchTerm: "",
+    filters: filters,
+    sortBy: externalSortBy,
+    sortOrder: externalSortOrder,
+    page: 1,
+    limit: 100,
+  })
+
+  // Filtrar productos específicos
+  const products = React.useMemo(() => {
+    const productsToHide = [
+      "Aceite Castrol 10W40",
+      "Amortiguador Monroe",
+      "Bujía NGK Iridium",
+      "Filtro de Aceite Bosch",
+    ]
+
+    return allProducts.filter(
+      (product) => !productsToHide.includes(product.name)
+    )
+  }, [allProducts])
+
+  // Handlers
+  const handleToggleFavorite = (product: Product) => {
+    const productId = `${product.name}-${product.brand}`
+    setFavorites((prev) => {
+      const newFavorites = new Set(prev)
+      if (newFavorites.has(productId)) {
+        newFavorites.delete(productId)
+      } else {
+        newFavorites.add(productId)
+      }
+      return newFavorites
+    })
+  }
+
+  const handleToggleFavoriteWithEvent = (
+    e: React.MouseEvent,
+    product: Product
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    handleToggleFavorite(product)
+  }
+
+  const handleAddToCart = (product: Product) => {
+    if (product.stock <= 0) return
+    setCart((prev) => [...prev, product])
+    console.log("Producto agregado al carrito:", product.name)
+  }
+
+  const handleAddToCartWithEvent = (e: React.MouseEvent, product: Product) => {
+    e.preventDefault()
+    e.stopPropagation()
+    handleAddToCart(product)
+  }
+
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product)
+    setShowProductDetail(true)
+  }
+
+  const getStockBadge = (stock: number) => {
+    if (stock <= 0) {
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+          Sin Stock
+        </span>
+      )
+    } else if (stock <= 10) {
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+          Stock: {stock}
+        </span>
+      )
+    } else {
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+          Stock: {stock}
+        </span>
+      )
+    }
+  }
+
+  // Estados de carga y error
+  if (loading) {
+    return (
+      <div className={`${className} flex justify-center items-center h-64`}>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div
+        className={`${className} bg-red-50 border border-red-200 rounded-xl p-6 text-center`}
+      >
+        <Filter
+          size={48}
+          className="mx-auto mb-2 text-red-600"
+        />
+        <h3 className="text-lg font-semibold text-red-800 mb-2">
+          Error al cargar productos
+        </h3>
+        <p className="text-red-600">{error}</p>
+        <button
+          onClick={refetch}
+          className="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+        >
+          Reintentar
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`${className}`}>
+      {/* Header con estadísticas */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Productos Disponibles
+          </h2>
+          <p className="text-gray-600">
+            Mostrando {products.length} productos
+            {totalCount > products.length && ` de ${totalCount} total`}
+          </p>
+        </div>
+
+        {/* Contadores */}
+        <div className="flex gap-4">
+          <div className="text-center">
+            <p className="text-sm text-gray-500">Favoritos</p>
+            <p className="text-xl font-bold text-red-500">{favorites.size}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-500">En carrito</p>
+            <p className="text-xl font-bold text-blue-500">{cart.length}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid de productos */}
+      {products.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {products.map((product, index) => {
+            const productId = `${product.name}-${product.brand}`
+            const isFavorite = favorites.has(productId)
+            const isOutOfStock = product.stock <= 0
+
+            return (
+              <div
+                key={`${product.id}-${index}`}
+                className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden cursor-pointer border border-gray-100"
+                onClick={() => handleProductClick(product)}
+              >
+                {/* Imagen del producto */}
+                <div className="relative h-48 sm:h-56 overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+                  <Image
+                    src={product.imgUrl}
+                    alt={product.name}
+                    fill
+                    className="object-cover group-hover:scale-110 transition-transform duration-500"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.src =
+                        "https://via.placeholder.com/300x240/f1f5f9/64748b?text=Imagen+No+Disponible"
+                    }}
+                  />
+
+                  {/* Badge de stock */}
+                  <div className="absolute top-4 left-4">
+                    {getStockBadge(product.stock)}
+                  </div>
+
+                  {/* Botón de favorito */}
+                  <button
+                    onClick={(e) => handleToggleFavoriteWithEvent(e, product)}
+                    className={`absolute top-4 right-4 p-2 rounded-full transition-all duration-300 z-10 ${
+                      isFavorite
+                        ? "bg-red-500 text-white shadow-lg"
+                        : "bg-white/80 text-gray-600 hover:bg-red-500 hover:text-white"
+                    } backdrop-blur-sm`}
+                    type="button"
+                  >
+                    <Heart
+                      size={18}
+                      fill={isFavorite ? "currentColor" : "none"}
+                    />
+                  </button>
+
+                  {/* Overlay con botones de acción */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleProductClick(product)
+                        }}
+                        className="p-3 bg-white/90 rounded-full hover:bg-white transition-colors"
+                      >
+                        <Eye
+                          size={20}
+                          className="text-gray-700"
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información del producto */}
+                <div className="p-6">
+                  {/* Marca y código */}
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="text-sm font-semibold text-red-500 uppercase tracking-wider">
+                      {product.brand}
+                    </span>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                      {product.model}
+                    </span>
+                  </div>
+
+                  {/* Nombre del producto */}
+                  <h3 className="font-bold text-lg text-gray-900 mb-3 line-clamp-2 leading-tight">
+                    {product.name}
+                  </h3>
+
+                  {/* Detalles técnicos */}
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                    <div className="flex items-center gap-1">
+                      <Calendar size={14} />
+                      <span>{product.year}</span>
+                    </div>
+                    {product.model && (
+                      <div className="flex items-center gap-1">
+                        <Cog size={14} />
+                        <span className="truncate">{product.model}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Precio */}
+                  <div className="mb-4">
+                    <span className="text-3xl font-bold text-gray-900">
+                      ${product.price}
+                    </span>
+                    <span className="text-sm text-gray-500 ml-1">USD</span>
+                  </div>
+
+                  {/* Descripción */}
+                  {product.description && (
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                      {product.description}
+                    </p>
+                  )}
+
+                  {/* Botón de agregar al carrito */}
+                  <button
+                    onClick={(e) => handleAddToCartWithEvent(e, product)}
+                    disabled={isOutOfStock}
+                    type="button"
+                    className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                      isOutOfStock
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-red-500 text-white hover:bg-red-600 hover:shadow-lg active:scale-95"
+                    }`}
+                  >
+                    <ShoppingCart size={18} />
+                    {isOutOfStock ? "No Disponible" : "Agregar al Carrito"}
+                  </button>
+                </div>
+
+                {/* Indicador de producto sin stock */}
+                {isOutOfStock && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <ShoppingCart
+                          size={24}
+                          className="text-red-500"
+                        />
+                      </div>
+                      <p className="font-semibold text-red-600">Agotado</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-16 bg-white rounded-2xl shadow-sm">
+          <Search
+            size={64}
+            className="mx-auto text-gray-400 mb-6"
+          />
+          <h3 className="text-2xl font-semibold text-gray-600 mb-4">
+            No se encontraron productos
+          </h3>
+          <p className="text-gray-500 mb-6 max-w-md mx-auto">
+            Intenta ajustando los filtros para ver más productos disponibles en
+            nuestro catálogo
+          </p>
+          <button
+            onClick={refetch}
+            className="px-8 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-semibold"
+          >
+            Recargar productos
+          </button>
+        </div>
+      )}
+
+      {/* Modal de detalle */}
+      <ProductDetailModal
+        isOpen={showProductDetail}
+        product={selectedProduct}
+        onClose={() => setShowProductDetail(false)}
+        onAddToCart={handleAddToCart}
+        onToggleFavorite={handleToggleFavorite}
+        isFavorite={
+          selectedProduct
+            ? favorites.has(`${selectedProduct.name}-${selectedProduct.brand}`)
+            : false
+        }
+      />
+    </div>
+  )
+}
+
+export default ProductCardsList
