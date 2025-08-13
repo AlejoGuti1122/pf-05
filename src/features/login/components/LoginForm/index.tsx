@@ -20,6 +20,7 @@ import { Loader2, LogIn, Mail, Lock, AlertCircle } from "lucide-react"
 import { LoginFormValues } from "../../types/login"
 import { useRouter } from "next/navigation"
 import useAuth from "../../hooks/useAuth"
+import ButtonGoogle from "../ButtonGoogle"
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -215,6 +216,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                   />
                 </div>
 
+              
+
                 {/* Botón premium */}
                 <Button
                   type="submit"
@@ -238,36 +241,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                     )}
                   </span>
                 </Button>
-                <div className="flex justify-center items-center">
-                  <Button
-                    variant="outline"
-                    className="w-94 h-12 rounded-2xl flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
-                  >
-                    {/* Icono de Google inline */}
-                    <svg
-                      className="w-5 h-5"
-                      viewBox="0 0 48 48"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        fill="#EA4335"
-                        d="M24 9.5c3.54 0 6.7 1.22 9.19 3.6l6.85-6.85C35.59 2.43 30.15 0 24 0 14.64 0 6.4 5.4 2.56 13.22l7.98 6.19C12.12 13.46 17.59 9.5 24 9.5z"
-                      />
-                      <path
-                        fill="#4285F4"
-                        d="M46.08 24.55c0-1.57-.14-3.08-.4-4.55H24v9.02h12.43c-.54 2.92-2.19 5.39-4.67 7.06l7.54 5.84C43.86 37.48 46.08 31.46 46.08 24.55z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M10.54 28.03c-1.2-3.58-1.2-7.5 0-11.08l-7.98-6.19C-2.33 17.96-2.33 30.04 2.56 38.78l7.98-6.19z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M24 48c6.15 0 11.34-2.02 15.12-5.48l-7.54-5.84C29.42 38.3 26.84 39 24 39c-6.41 0-11.88-3.96-14.46-9.91l-7.98 6.19C6.4 42.6 14.64 48 24 48z"
-                      />
-                    </svg>
-                    <span>Continuar con Google</span>
-                  </Button>
+                  <div>
+                  <ButtonGoogle/>
                 </div>
 
                 {/* Link sutil y minimalista */}
