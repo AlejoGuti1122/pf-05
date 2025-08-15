@@ -10,7 +10,7 @@ import {
   Loader2,
 } from "lucide-react"
 import Image from "next/image"
-import { useCart } from "../../hooks/useCart"
+import { useCartContext } from "../../context/index"
 
 const ShoppingCart = () => {
   const {
@@ -23,7 +23,7 @@ const ShoppingCart = () => {
     removeItem,
     clearCart,
     validateForCheckout,
-  } = useCart()
+  } = useCartContext()
 
   // ✅ Calcular totales con validación de undefined
   const subtotal = Number(cart?.total || cart?.subtotal || 0)

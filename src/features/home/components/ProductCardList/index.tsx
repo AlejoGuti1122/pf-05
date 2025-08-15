@@ -14,8 +14,9 @@ import Product from "../../types/products"
 import ProductDetailModal from "../ProductDetailModal"
 import { FilterState } from "../../types/filters"
 import useProductsFiltered from "../../hooks/useFilters"
-import { useCart } from "../../../cart/hooks/useCart" // ✅ Agregar import del hook
+
 import Image from "next/image"
+import { useCartContext } from "../../../cart/context/index"
 
 interface ProductCardsListProps {
   filters?: FilterState
@@ -34,10 +35,10 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   // ❌ Quitar esta línea:
   // const [cart, setCart] = useState<Product[]>([])
-  
+
   // ✅ Agregar el hook del carrito:
-  const { addItem, isLoading: cartLoading, itemCount } = useCart()
-  
+  const { addItem, isLoading: cartLoading, itemCount } = useCartContext()
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [showProductDetail, setShowProductDetail] = useState(false)
 
@@ -108,32 +109,40 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
   const handleAddToCart = async (product: Product) => {
     console.log("🔍 DEBUG - Producto completo:", product)
     console.log("🔍 DEBUG - Claves del producto:", Object.keys(product))
-    
+
     if (product.stock <= 0) return
-    
+
     try {
       // ✅ Usar el ID real del producto que ya viene del backend
       const productId = product.id
-      
+
       if (!productId) {
         console.error("❌ Producto sin ID válido:", product)
         return
       }
-      
-      console.log("🎯 Enviando productId UUID:", productId, "para producto:", product.name)
-      
+
+      console.log(
+        "🎯 Enviando productId UUID:",
+        productId,
+        "para producto:",
+        product.name
+      )
+
       await addItem({
-        productId: productId,  // ✅ Usar el UUID real, no generar uno falso
+        productId: productId, // ✅ Usar el UUID real, no generar uno falso
         quantity: 1,
       })
-      
+
       console.log("✅ Producto agregado al carrito backend:", product.name)
     } catch (error) {
       console.error("❌ Error agregando al carrito:", error)
     }
   }
 
-  const handleAddToCartWithEvent = async (e: React.MouseEvent, product: Product) => {
+  const handleAddToCartWithEvent = async (
+    e: React.MouseEvent,
+    product: Product
+  ) => {
     e.preventDefault()
     e.stopPropagation()
     await handleAddToCart(product)
@@ -351,16 +360,18 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
                     }`}
                   >
                     {cartLoading ? (
-                      <Loader2 size={18} className="animate-spin" />
+                      <Loader2
+                        size={18}
+                        className="animate-spin"
+                      />
                     ) : (
                       <ShoppingCart size={18} />
                     )}
-                    {cartLoading 
-                      ? "Agregando..." 
-                      : isOutOfStock 
-                        ? "No Disponible" 
-                        : "Agregar al Carrito"
-                    }
+                    {cartLoading
+                      ? "Agregando..."
+                      : isOutOfStock
+                      ? "No Disponible"
+                      : "Agregar al Carrito"}
                   </button>
                 </div>
 

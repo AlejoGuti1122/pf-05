@@ -29,7 +29,7 @@ import {
 } from "framer-motion"
 import useAuth from "@/features/login/hooks/useAuth"
 // ✅ IMPORTAR el hook del carrito
-import { useCart } from "../../../cart/hooks/useCart" // Ajusta la ruta según tu estructura
+import { useCartContext } from "../../../cart/context/index" // Ajusta la ruta según tu estructura
 
 const Navbar = () => {
   const [open, setOpen] = useState(false)
@@ -44,7 +44,7 @@ const Navbar = () => {
   const { user, logout, loading } = useAuth()
 
   // ✅ AGREGAR: Hook del carrito para obtener el contador
-  const { itemCount, isLoading: cartLoading, total } = useCart()
+  const { itemCount, isLoading: cartLoading, total } = useCartContext()
 
   console.log("🎯 NAVBAR - itemCount:", itemCount)
 
