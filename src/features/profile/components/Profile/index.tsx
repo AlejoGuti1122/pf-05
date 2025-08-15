@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import {
   User,
   Mail,
@@ -11,77 +11,159 @@ import {
   Save,
   X,
   Camera,
-  Shield,
-  CreditCard,
   Package,
   Heart,
-  Settings,
   LogOut,
   CheckCircle,
+  Loader2,
 } from "lucide-react"
 import Image from "next/image"
+import { useRouter, useSearchParams } from "next/navigation"
+import useAuth from "@/features/login/hooks/useAuth"
+import { useProfile } from "../../hooks/useProfile"
 
 const UserProfile = () => {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get("tab") || "profile"
+
+  // ✅ Hooks del backend
+  const { profile, stats, isLoading, updateProfile } = useProfile()
+  const { logout } = useAuth()
+
+  // Estados locales
   const [isEditing, setIsEditing] = useState(false)
-  const [activeTab, setActiveTab] = useState("profile")
-  const [profileData, setProfileData] = useState({
-    name: "María González",
-    email: "maria.gonzalez@email.com",
-    phone: "+57 300 123 4567",
-    address: "Carrera 23 #45-67, Manizales, Caldas",
-    birthDate: "1992-05-15",
-    joinDate: "2023-01-15",
-    avatar:
-      "https://images.unsplash.com/photo-1494790108755-2616b612b3-5c?w=150&h=150&fit=crop&crop=face",
+  const [activeTab, setActiveTab] = useState(initialTab)
+  const [tempData, setTempData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    birthDate: "",
   })
 
-  const [tempData, setTempData] = useState({ ...profileData })
+  // ✅ Actualizar tempData cuando cambie el profile
+  useEffect(() => {
+    if (profile) {
+      setTempData({
+        name: profile.name || "",
+        email: profile.email || "",
+        phone: profile.phone || "",
+        address: profile.address || "",
+        birthDate: profile.birthDate || "",
+      })
+    }
+  }, [profile])
 
-  const handleSave = () => {
-    setProfileData({ ...tempData })
-    setIsEditing(false)
+  // ✅ Manejar guardado con backend
+  const handleSave = async () => {
+    try {
+      await updateProfile(tempData)
+      setIsEditing(false)
+    } catch (error) {
+      console.error("Error al guardar:", error)
+    }
   }
 
   const handleCancel = () => {
-    setTempData({ ...profileData })
+    if (profile) {
+      setTempData({
+        name: profile.name || "",
+        email: profile.email || "",
+        phone: profile.phone || "",
+        address: profile.address || "",
+        birthDate: profile.birthDate || "",
+      })
+    }
     setIsEditing(false)
   }
 
-  const stats = [
-    { label: "Pedidos", value: "24", icon: Package },
-    { label: "Favoritos", value: "18", icon: Heart },
-    { label: "Puntos", value: "2,450", icon: CheckCircle },
+  // ✅ Manejar logout
+  const handleLogout = async () => {
+    try {
+      await logout()
+      router.push("/")
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+    }
+  }
+
+  // ✅ Datos de estadísticas (del backend o por defecto)
+  const displayStats = [
+    {
+      label: "Pedidos",
+      value: stats?.orderCount?.toString() || "0",
+      icon: Package,
+    },
+    {
+      label: "Favoritos",
+      value: stats?.favoriteCount?.toString() || "0",
+      icon: Heart,
+    },
+    {
+      label: "Puntos",
+      value: stats?.points?.toLocaleString() || "0",
+      icon: CheckCircle,
+    },
   ]
 
+  // ✅ LIMPIO: Solo las secciones que necesitas
   const menuItems = [
     { id: "profile", label: "Mi Perfil", icon: User },
     { id: "orders", label: "Mis Pedidos", icon: Package },
     { id: "favorites", label: "Favoritos", icon: Heart },
-    { id: "payments", label: "Métodos de Pago", icon: CreditCard },
-    { id: "security", label: "Seguridad", icon: Shield },
-    { id: "settings", label: "Configuración", icon: Settings },
   ]
 
+  // ✅ Órdenes simuladas (hasta que tengas el endpoint)
   const recentOrders = [
     {
       id: "#ORD-001",
-      date: "2025-08-10",
+      date: "2025-08-15",
       status: "Entregado",
       total: "$299.99",
     },
     {
       id: "#ORD-002",
-      date: "2025-08-05",
+      date: "2025-08-10",
       status: "En tránsito",
       total: "$150.00",
     },
     {
       id: "#ORD-003",
-      date: "2025-07-28",
+      date: "2025-08-05",
       status: "Entregado",
       total: "$89.99",
     },
   ]
+
+  // ✅ Estado de carga
+  if (isLoading && !profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-red-600" />
+          <p className="text-gray-600">Cargando perfil...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // ✅ Si no hay perfil (error o no logueado)
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4 flex items-center justify-center">
+        <div className="text-center bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-red-600 mb-4">Error al cargar el perfil</p>
+          <button
+            onClick={() => router.push("/home")}
+            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          >
+            Volver al inicio
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -93,10 +175,13 @@ const UserProfile = () => {
               <div className="flex flex-col sm:flex-row items-center gap-6">
                 <div className="relative">
                   <Image
-                    src={profileData.avatar}
+                    src={
+                      profile.avatar ||
+                      "https://via.placeholder.com/96x96/f1f5f9/64748b?text=Avatar"
+                    }
                     alt="Avatar"
-                    width={20}
-                    height={20}
+                    width={96}
+                    height={96}
                     className="w-24 h-24 rounded-full border-4 border-red-100 object-cover"
                   />
                   <button className="absolute bottom-0 right-0 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full transition-colors">
@@ -106,18 +191,19 @@ const UserProfile = () => {
 
                 <div className="flex-1 text-center sm:text-left">
                   <h2 className="text-2xl font-bold text-black mb-1">
-                    {profileData.name}
+                    {profile.name}
                   </h2>
-                  <p className="text-gray-600 mb-2">Cliente Premium</p>
+                  <p className="text-gray-600 mb-2">
+                    {profile.isAdmin ? "Administrador" : "Cliente Premium"}
+                  </p>
                   <p className="text-sm text-gray-500">
                     Miembro desde{" "}
-                    {new Date(profileData.joinDate).toLocaleDateString(
-                      "es-ES",
-                      {
-                        year: "numeric",
-                        month: "long",
-                      }
-                    )}
+                    {profile.joinDate
+                      ? new Date(profile.joinDate).toLocaleDateString("es-ES", {
+                          year: "numeric",
+                          month: "long",
+                        })
+                      : "Hace tiempo"}
                   </p>
                 </div>
 
@@ -140,7 +226,7 @@ const UserProfile = () => {
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4">
-              {stats.map((stat) => (
+              {displayStats.map((stat) => (
                 <div
                   key={stat.label}
                   className="bg-white rounded-xl border border-gray-100 p-6 text-center"
@@ -177,7 +263,7 @@ const UserProfile = () => {
                     />
                   ) : (
                     <p className="px-4 py-3 bg-gray-50 rounded-lg text-black">
-                      {profileData.name}
+                      {profile.name}
                     </p>
                   )}
                 </div>
@@ -198,7 +284,7 @@ const UserProfile = () => {
                     />
                   ) : (
                     <p className="px-4 py-3 bg-gray-50 rounded-lg text-black">
-                      {profileData.email}
+                      {profile.email}
                     </p>
                   )}
                 </div>
@@ -219,7 +305,7 @@ const UserProfile = () => {
                     />
                   ) : (
                     <p className="px-4 py-3 bg-gray-50 rounded-lg text-black">
-                      {profileData.phone}
+                      {profile.phone || "No especificado"}
                     </p>
                   )}
                 </div>
@@ -240,9 +326,11 @@ const UserProfile = () => {
                     />
                   ) : (
                     <p className="px-4 py-3 bg-gray-50 rounded-lg text-black">
-                      {new Date(profileData.birthDate).toLocaleDateString(
-                        "es-ES"
-                      )}
+                      {profile.birthDate
+                        ? new Date(profile.birthDate).toLocaleDateString(
+                            "es-ES"
+                          )
+                        : "No especificado"}
                     </p>
                   )}
                 </div>
@@ -263,7 +351,7 @@ const UserProfile = () => {
                     />
                   ) : (
                     <p className="px-4 py-3 bg-gray-50 rounded-lg text-black">
-                      {profileData.address}
+                      {profile.address || "No especificado"}
                     </p>
                   )}
                 </div>
@@ -273,9 +361,14 @@ const UserProfile = () => {
                 <div className="flex gap-3 mt-6">
                   <button
                     onClick={handleSave}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    disabled={isLoading}
+                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
-                    <Save className="w-4 h-4" />
+                    {isLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
                     Guardar Cambios
                   </button>
                   <button
@@ -332,20 +425,23 @@ const UserProfile = () => {
           </div>
         )
 
-      default:
+      case "favorites":
         return (
           <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
             <div className="text-gray-400 mb-4">
-              <Settings className="w-16 h-16 mx-auto" />
+              <Heart className="w-16 h-16 mx-auto" />
             </div>
             <h3 className="text-lg font-semibold text-black mb-2">
               Próximamente
             </h3>
             <p className="text-gray-600">
-              Esta sección estará disponible pronto.
+              La sección de favoritos estará disponible pronto.
             </p>
           </div>
         )
+
+      default:
+        return null
     }
   }
 
@@ -359,16 +455,19 @@ const UserProfile = () => {
               <div className="p-6 bg-gradient-to-r from-red-600 to-red-700">
                 <div className="text-center">
                   <Image
-                    src={profileData.avatar}
+                    src={
+                      profile.avatar ||
+                      "https://via.placeholder.com/64x64/f1f5f9/64748b?text=Avatar"
+                    }
                     alt="Avatar"
-                    width={20}
-                    height={20}
-                    className="w-16 h-16 rounded-full mx-auto mb-3 border-3 border-white"
+                    width={64}
+                    height={64}
+                    className="w-16 h-16 rounded-full mx-auto mb-3 border-3 border-white object-cover"
                   />
-                  <h2 className="font-semibold text-white">
-                    {profileData.name}
-                  </h2>
-                  <p className="text-red-100 text-sm">Cliente Premium</p>
+                  <h2 className="font-semibold text-white">{profile.name}</h2>
+                  <p className="text-red-100 text-sm">
+                    {profile.isAdmin ? "Administrador" : "Cliente Premium"}
+                  </p>
                 </div>
               </div>
 
@@ -390,7 +489,10 @@ const UserProfile = () => {
 
                 <hr className="my-4 border-gray-200" />
 
-                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-red-600 hover:bg-red-50 transition-colors">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-red-600 hover:bg-red-50 transition-colors"
+                >
                   <LogOut className="w-5 h-5" />
                   Cerrar Sesión
                 </button>

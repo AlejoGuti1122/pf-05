@@ -499,7 +499,9 @@ const Navbar = () => {
                         }}
                       >
                         <UserCircle className="w-4 h-4 text-blue-500" />
-                        <span className="text-sm font-medium">Mi Perfil</span>
+                        <Link href="/profile">
+                          <span className="text-sm font-medium">Mi Perfil</span>
+                        </Link>
                       </motion.button>
 
                       {/* Separador */}
