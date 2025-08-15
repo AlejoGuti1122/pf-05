@@ -9,9 +9,143 @@ import LayoutWrapper from "@/shared/Wrapper"
 
 import Image from "next/image"
 
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 
 const PageHome = () => {
+  // 🚀 MANEJAR TOKEN DE GOOGLE AUTH AL INICIO - DEBUG COMPLETO
+  useEffect(() => {
+    // 🔍 CAPTURAR TODA LA INFORMACIÓN PARA EL BACKEND
+    console.log("🔍 ===== DEBUG COMPLETO PARA BACKEND =====")
+    console.log("🔍 URL COMPLETA:", window.location.href)
+    console.log("🔍 PATHNAME:", window.location.pathname)
+    console.log("🔍 SEARCH:", window.location.search)
+    console.log("🔍 HASH:", window.location.hash)
+
+    const urlParams = new URLSearchParams(window.location.search)
+
+    // 🔍 TODOS LOS PARÁMETROS
+    console.log("🔍 TODOS LOS PARÁMETROS URL:", Object.fromEntries(urlParams))
+
+    // 🔍 PARÁMETROS ESPECÍFICOS
+    const token = urlParams.get("token")
+    const data = urlParams.get("data")
+    const success = urlParams.get("success")
+    const error = urlParams.get("error")
+    const code = urlParams.get("code")
+
+    console.log("🔍 PARÁMETRO token:", token)
+    console.log("🔍 PARÁMETRO data:", data)
+    console.log("🔍 PARÁMETRO success:", success)
+    console.log("🔍 PARÁMETRO error:", error)
+    console.log("🔍 PARÁMETRO code:", code)
+
+    // 🔍 HEADERS Y OTROS DATOS
+    console.log("🔍 USER AGENT:", navigator.userAgent)
+    console.log("🔍 REFERRER:", document.referrer)
+
+    // 🔍 DATOS EN LOCALSTORAGE ANTES
+    console.log("🔍 LOCALSTORAGE ANTES:")
+    console.log("  - token:", localStorage.getItem("token"))
+    console.log("  - user:", localStorage.getItem("user"))
+
+    console.log("🔍 ===== FIN DEBUG INICIAL =====")
+
+    // 🔥 NUEVO FORMATO: data con access_token y user
+    if (data) {
+      console.log("✅ DETECTADO PARÁMETRO DATA")
+      try {
+        const parsedData = JSON.parse(decodeURIComponent(data))
+        console.log("🎯 Datos de Google recibidos:", parsedData)
+        console.log(
+          "🔑 Access Token:",
+          parsedData.access_Token || parsedData.accessToken || parsedData.token
+        )
+        console.log("👤 Usuario:", parsedData.user)
+
+        // Verificar que los datos sean válidos
+        const accessToken =
+          parsedData.access_Token || parsedData.accessToken || parsedData.token
+        if (accessToken && parsedData.user) {
+          // Guardar token en localStorage como tu sistema actual
+          localStorage.setItem("token", accessToken)
+
+          // Opcional: guardar datos del usuario también
+          localStorage.setItem("user", JSON.stringify(parsedData.user))
+
+          console.log("💾 Token y usuario de Google guardados exitosamente")
+          console.log("💾 LOCALSTORAGE DESPUÉS:")
+          console.log("  - token:", localStorage.getItem("token"))
+          console.log("  - user:", localStorage.getItem("user"))
+
+          // Limpiar URL de parámetros
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          )
+
+          // Opcional: recargar para que useAuth detecte cambios
+          console.log("🔄 Recargando página para actualizar useAuth...")
+          setTimeout(() => window.location.reload(), 1000)
+        } else {
+          console.error("❌ Datos incompletos de Google:", parsedData)
+          console.error("❌ accessToken presente:", !!accessToken)
+          console.error("❌ user presente:", !!parsedData.user)
+        }
+      } catch (error) {
+        console.error("❌ Error parseando datos de Google:", error)
+        console.error("❌ Data raw:", data)
+        console.error("❌ Data decoded:", decodeURIComponent(data))
+      }
+    }
+    // 🔄 FORMATO ANTERIOR: token directo (mantener por compatibilidad)
+    else if (token) {
+      console.log("✅ DETECTADO PARÁMETRO TOKEN (formato anterior)")
+      console.log("🎯 Token valor:", token)
+
+      if (
+        token === "[object Object]" ||
+        token.includes("[object") ||
+        token.includes("Object]")
+      ) {
+        console.error("❌ TOKEN MALFORMADO DETECTADO:", token)
+        console.error("❌ El backend está enviando un objeto como string")
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        )
+        return
+      }
+
+      try {
+        localStorage.setItem("token", token)
+        console.log(
+          "💾 Token de Google guardado exitosamente (formato anterior)"
+        )
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        )
+      } catch (error) {
+        console.error("❌ Error guardando token de Google:", error)
+      }
+    }
+    // 🔍 OTROS PARÁMETROS
+    else if (success || error || code) {
+      console.log("✅ DETECTADOS OTROS PARÁMETROS")
+      console.log("🔍 Success:", success)
+      console.log("🔍 Error:", error)
+      console.log("🔍 Code:", code)
+    }
+    // 🤷 NINGÚN PARÁMETRO RELEVANTE
+    else {
+      console.log("ℹ️ NO SE DETECTARON PARÁMETROS DE GOOGLE AUTH")
+      console.log("ℹ️ Esto es normal si entraste directo a /home")
+    }
+  }, [])
+
   const [searchResults, setSearchResults] = useState<any[]>([])
 
   // ✅ FILTROS SIMPLIFICADOS - SOLO MARCAS Y STOCK
@@ -215,6 +349,14 @@ const PageHome = () => {
                   {filters.selectedBrands.length > 0 ? (
                     <span className="ml-2 text-blue-700">
                       Marcas: {filters.selectedBrands.join(", ")}
+                    </span>
+                  ) : null}
+                  {filters.stockFilter !== "all" ? (
+                    <span className="ml-2 text-blue-700">
+                      Stock:{" "}
+                      {filters.stockFilter === "inStock"
+                        ? "En Stock"
+                        : "Sin Stock"}
                     </span>
                   ) : null}
                   {filters.stockFilter !== "all" ? (

@@ -28,6 +28,8 @@ import {
   AnimatePresence,
 } from "framer-motion"
 import useAuth from "@/features/login/hooks/useAuth"
+// ✅ IMPORTAR el hook del carrito
+import { useCartContext } from "../../../cart/context/index" // Ajusta la ruta según tu estructura
 
 const Navbar = () => {
   const [open, setOpen] = useState(false)
@@ -40,6 +42,16 @@ const Navbar = () => {
 
   // Hook de auth
   const { user, logout, loading } = useAuth()
+
+  // ✅ AGREGAR: Hook del carrito para obtener el contador
+  const { itemCount, isLoading: cartLoading, total } = useCartContext()
+
+  console.log("🎯 NAVBAR - itemCount:", itemCount)
+
+  // ✅ AGREGAR ESTE useEffect AQUÍ:
+  useEffect(() => {
+    console.log("🔔 NAVBAR - itemCount cambió a:", itemCount)
+  }, [itemCount])
 
   // Función para manejar logout
   const handleLogout = async () => {
@@ -325,15 +337,18 @@ const Navbar = () => {
             </Link>
           </motion.div>
 
-          {/* Carrito súper animado */}
+          {/* ✅ Carrito súper animado con contador dinámico */}
           <motion.div
             variants={itemVariants}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
           >
             <Link
-              href="/carrito"
+              href="/cart"
               className="relative group"
+              onClick={() => {
+                console.log("🔗 Click en carrito - itemCount:", itemCount)
+              }}
             >
               <motion.div
                 className="p-3 rounded-2xl bg-gradient-to-br from-red-600/20 to-red-700/30 backdrop-blur-sm border border-red-500/30"
@@ -355,27 +370,54 @@ const Navbar = () => {
                 </motion.div>
               </motion.div>
 
-              {/* Badge ultra animado */}
-              <motion.div
-                className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center border-2 border-white"
-                animate={{
-                  scale: [1, 1.2, 1],
-                  rotate: [0, 10, -10, 0],
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-                whileHover={{ scale: 1.3 }}
-              >
-                <span className="text-xs font-bold text-white">3</span>
-                {/* Ping effect */}
+              {/* ✅ Badge ultra animado con contador dinámico */}
+              {itemCount > 0 && (
                 <motion.div
-                  className="absolute inset-0 bg-red-400 rounded-full"
+                  className="absolute -top-2 -right-2 min-w-[24px] h-6 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center border-2 border-white px-1"
+                  initial={{ scale: 0 }}
                   animate={{
-                    scale: [1, 1.5, 1],
-                    opacity: [0.5, 0, 0.5],
+                    scale: [1, 1.2, 1],
+                    rotate: [0, 10, -10, 0],
                   }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  whileHover={{ scale: 1.3 }}
+                  key={`badge-${itemCount}-${Date.now()}`} // ✅ CAMBIAR: Key más específica
+                >
+                  <motion.span
+                    className="text-xs font-bold text-white"
+                    key={`number-${itemCount}-${Date.now()}`} // ✅ AGREGAR: Key para el número
+                    initial={{ scale: 1.5, opacity: 0 }} // ✅ AGREGAR: Animación de entrada
+                    animate={{ scale: 1, opacity: 1 }} // ✅ AGREGAR: Animación de entrada
+                    transition={{ duration: 0.3 }} // ✅ AGREGAR: Animación de entrada
+                  >
+                    {itemCount > 99 ? "99+" : itemCount}
+                  </motion.span>
+                </motion.div>
+              )}
+
+              {/* ✅ Indicador de carga del carrito */}
+              {cartLoading && (
+                <motion.div
+                  className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full"
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    opacity: [0.7, 1, 0.7],
+                  }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
                 />
-              </motion.div>
+              )}
+
+              {/* ✅ Tooltip con total (opcional) */}
+              {itemCount > 0 && (
+                <motion.div
+                  className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap"
+                  initial={{ opacity: 0, y: -10 }}
+                  whileHover={{ opacity: 1, y: 0 }}
+                >
+                  {itemCount} item{itemCount !== 1 ? "s" : ""} • $
+                  {total?.toFixed(2) || "0.00"}
+                </motion.div>
+              )}
             </Link>
           </motion.div>
 
@@ -457,7 +499,9 @@ const Navbar = () => {
                         }}
                       >
                         <UserCircle className="w-4 h-4 text-blue-500" />
-                        <span className="text-sm font-medium">Mi Perfil</span>
+                        <Link href="/profile">
+                          <span className="text-sm font-medium">Mi Perfil</span>
+                        </Link>
                       </motion.button>
 
                       {/* Separador */}
@@ -594,7 +638,7 @@ const Navbar = () => {
                 </Link>
               </motion.div>
 
-              {/* Carrito en mobile */}
+              {/* ✅ Carrito en mobile con contador */}
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -607,12 +651,25 @@ const Navbar = () => {
                   onClick={() => setOpen(false)}
                 >
                   <motion.span
-                    className="text-2xl"
+                    className="text-2xl relative"
                     whileHover={{ scale: 1.3, rotate: 15 }}
                   >
                     🛒
+                    {/* Badge en mobile */}
+                    {itemCount > 0 && (
+                      <motion.span
+                        className="absolute -top-2 -right-2 min-w-[20px] h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center border border-white px-1"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        key={itemCount}
+                      >
+                        {itemCount > 99 ? "99+" : itemCount}
+                      </motion.span>
+                    )}
                   </motion.span>
-                  <span className="text-lg">Carrito</span>
+                  <span className="text-lg">
+                    Carrito {itemCount > 0 && `(${itemCount})`}
+                  </span>
                   <motion.div
                     className="ml-auto w-2 h-2 bg-red-500 rounded-full opacity-0 group-hover:opacity-100"
                     whileHover={{ scale: 1.5 }}

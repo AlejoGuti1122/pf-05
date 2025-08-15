@@ -1,13 +1,12 @@
 // components/ProductCard.tsx
 import React from "react"
-import { ShoppingCart, Heart, Calendar, Cog } from "lucide-react"
-
+import { ShoppingCart, Heart, Calendar, Cog, Loader2 } from "lucide-react"
 import Image from "next/image"
 import Product from "../../types/products"
+import { useCart } from "../../../cart/hooks/useCart"
 
 interface ProductCardProps {
   product: Product
-  onAddToCart?: (product: Product) => void
   onToggleFavorite?: (product: Product) => void
   onProductClick?: (product: Product) => void
   isFavorite?: boolean
@@ -15,11 +14,14 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
-  onAddToCart,
   onToggleFavorite,
   onProductClick,
   isFavorite = false,
 }) => {
+  console.log("🔧 ProductCard cargado para:", product.name)
+  const { addItem, isLoading } = useCart()
+  console.log("🎯 useCart hook loaded:", { addItem: !!addItem, isLoading })
+
   const isInStock = product.stock > 0
 
   const handleCardClick = () => {
@@ -28,10 +30,40 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
   }
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (onAddToCart && isInStock) {
-      onAddToCart(product)
+    console.log("🎯 handleAddToCart ejecutado para:", product.name)
+    console.log("🎯 isInStock:", isInStock)
+    console.log("🎯 isLoading:", isLoading)
+
+    if (isInStock && !isLoading) {
+      try {
+        console.log("🎯 Entrando al try block")
+        // Generar un ID único basado en las propiedades del producto
+        const productId =
+          `${product.brand}-${product.model}-${product.year}-${product.engine}`
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+
+        console.log("🎯 ProductId generado:", productId)
+        console.log("🎯 Llamando addItem...")
+
+        await addItem({
+          productId: productId,
+          quantity: 1,
+        })
+
+        console.log("🎯 addItem completado")
+      } catch (error) {
+        console.error("🎯 Error en handleAddToCart:", error)
+      }
+    } else {
+      console.log(
+        "🎯 No se ejecuta addItem - isInStock:",
+        isInStock,
+        "isLoading:",
+        isLoading
+      )
     }
   }
 
@@ -135,15 +167,26 @@ const ProductCard: React.FC<ProductCardProps> = ({
         {/* Botón de agregar al carrito */}
         <button
           onClick={handleAddToCart}
-          disabled={!isInStock}
+          disabled={!isInStock || isLoading}
           className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
-            isInStock
-              ? "bg-red-500 text-white hover:bg-blue-700 active:bg-blue-800"
+            isInStock && !isLoading
+              ? "bg-red-500 text-white hover:bg-red-600 active:bg-red-700"
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
           }`}
         >
-          <ShoppingCart size={16} />
-          {isInStock ? "Agregar al Carrito" : "No Disponible"}
+          {isLoading ? (
+            <Loader2
+              size={16}
+              className="animate-spin"
+            />
+          ) : (
+            <ShoppingCart size={16} />
+          )}
+          {isLoading
+            ? "Agregando..."
+            : isInStock
+            ? "Agregar al Carrito"
+            : "No Disponible"}
         </button>
       </div>
     </div>

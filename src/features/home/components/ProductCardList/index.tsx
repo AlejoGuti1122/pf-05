@@ -8,12 +8,15 @@ import {
   Eye,
   Calendar,
   Cog,
+  Loader2,
 } from "lucide-react"
 import Product from "../../types/products"
 import ProductDetailModal from "../ProductDetailModal"
 import { FilterState } from "../../types/filters"
 import useProductsFiltered from "../../hooks/useFilters"
+
 import Image from "next/image"
+import { useCartContext } from "../../../cart/context/index"
 
 interface ProductCardsListProps {
   filters?: FilterState
@@ -30,7 +33,12 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
 }) => {
   // Estados principales
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
-  const [cart, setCart] = useState<Product[]>([])
+  // ❌ Quitar esta línea:
+  // const [cart, setCart] = useState<Product[]>([])
+
+  // ✅ Agregar el hook del carrito:
+  const { addItem, isLoading: cartLoading, itemCount } = useCartContext()
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [showProductDetail, setShowProductDetail] = useState(false)
 
@@ -97,16 +105,47 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
     handleToggleFavorite(product)
   }
 
-  const handleAddToCart = (product: Product) => {
+  // ✅ Nueva función integrada con el backend:
+  const handleAddToCart = async (product: Product) => {
+    console.log("🔍 DEBUG - Producto completo:", product)
+    console.log("🔍 DEBUG - Claves del producto:", Object.keys(product))
+
     if (product.stock <= 0) return
-    setCart((prev) => [...prev, product])
-    console.log("Producto agregado al carrito:", product.name)
+
+    try {
+      // ✅ Usar el ID real del producto que ya viene del backend
+      const productId = product.id
+
+      if (!productId) {
+        console.error("❌ Producto sin ID válido:", product)
+        return
+      }
+
+      console.log(
+        "🎯 Enviando productId UUID:",
+        productId,
+        "para producto:",
+        product.name
+      )
+
+      await addItem({
+        productId: productId, // ✅ Usar el UUID real, no generar uno falso
+        quantity: 1,
+      })
+
+      console.log("✅ Producto agregado al carrito backend:", product.name)
+    } catch (error) {
+      console.error("❌ Error agregando al carrito:", error)
+    }
   }
 
-  const handleAddToCartWithEvent = (e: React.MouseEvent, product: Product) => {
+  const handleAddToCartWithEvent = async (
+    e: React.MouseEvent,
+    product: Product
+  ) => {
     e.preventDefault()
     e.stopPropagation()
-    handleAddToCart(product)
+    await handleAddToCart(product)
   }
 
   const handleProductClick = (product: Product) => {
@@ -182,7 +221,7 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
           </p>
         </div>
 
-        {/* Contadores */}
+        {/* Contadores - ✅ Actualizado para usar el carrito del backend */}
         <div className="flex gap-4">
           <div className="text-center">
             <p className="text-sm text-gray-500">Favoritos</p>
@@ -190,7 +229,7 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
           </div>
           <div className="text-center">
             <p className="text-sm text-gray-500">En carrito</p>
-            <p className="text-xl font-bold text-blue-500">{cart.length}</p>
+            <p className="text-xl font-bold text-blue-500">{itemCount}</p>
           </div>
         </div>
       </div>
@@ -309,19 +348,30 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
                     </p>
                   )}
 
-                  {/* Botón de agregar al carrito */}
+                  {/* Botón de agregar al carrito - ✅ Actualizado con loading */}
                   <button
                     onClick={(e) => handleAddToCartWithEvent(e, product)}
-                    disabled={isOutOfStock}
+                    disabled={isOutOfStock || cartLoading}
                     type="button"
                     className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                      isOutOfStock
+                      isOutOfStock || cartLoading
                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                         : "bg-red-500 text-white hover:bg-red-600 hover:shadow-lg active:scale-95"
                     }`}
                   >
-                    <ShoppingCart size={18} />
-                    {isOutOfStock ? "No Disponible" : "Agregar al Carrito"}
+                    {cartLoading ? (
+                      <Loader2
+                        size={18}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <ShoppingCart size={18} />
+                    )}
+                    {cartLoading
+                      ? "Agregando..."
+                      : isOutOfStock
+                      ? "No Disponible"
+                      : "Agregar al Carrito"}
                   </button>
                 </div>
 
