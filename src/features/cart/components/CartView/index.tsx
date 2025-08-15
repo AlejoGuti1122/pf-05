@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import React from "react"
@@ -10,12 +11,25 @@ import {
   Loader2,
 } from "lucide-react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { useCartContext } from "../../context/index"
+import { useOrder } from "../../hooks/useOrders"
 
 const ShoppingCart = () => {
+  const router = useRouter()
+
+  // ✅ Helper function para manejar errores de TypeScript
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message
+    if (typeof error === "string") return error
+    return "Error desconocido"
+  }
+
+  // ✅ Hook del carrito (existente)
   const {
     cart,
-    isLoading,
+    isLoading: cartLoading,
     error,
     itemCount,
     isEmpty,
@@ -25,18 +39,64 @@ const ShoppingCart = () => {
     validateForCheckout,
   } = useCartContext()
 
+  // ✅ Hook de órdenes
+  const { createOrder, isLoading: orderLoading } = useOrder()
+
+  // ✅ Loading combinado
+  const isLoading = cartLoading || orderLoading
+
   // ✅ Calcular totales con validación de undefined
   const subtotal = Number(cart?.total || cart?.subtotal || 0)
   const shipping = subtotal > 500 ? 0 : 29.99
   const tax = subtotal * 0.1
   const finalTotal = subtotal + shipping + tax
 
+  // ✅ ACTUALIZADO: handleCheckout con formato correcto de API
   const handleCheckout = async () => {
-    const validation = await validateForCheckout()
-    if (validation.valid) {
-      // Redirigir al checkout
-      console.log("Proceder al checkout")
-      // router.push('/checkout')
+    try {
+      console.log("🔍 Validando carrito para checkout...")
+      const validation = await validateForCheckout()
+
+      const isValidCart =
+        validation &&
+        validation.status === "ACTIVE" &&
+        validation.items &&
+        validation.items.length > 0 &&
+        validation.total > 0
+
+      if (!isValidCart) {
+        toast.error("El carrito no es válido para proceder al checkout")
+        console.error("❌ Carrito no válido:", validation)
+        return
+      }
+
+      console.log("✅ Carrito validado correctamente")
+
+      // ✅ FORMATO CORRECTO: Lo que espera tu API
+      const orderData = {
+        userId: JSON.parse(localStorage.getItem("user") || "{}").id, // TODO: Obtener del contexto de usuario
+        products: validation.items.map((item: any) => ({
+          id: item.product.id, // Usar el ID del producto
+        })),
+      }
+
+      console.log("🛒 Creando orden con datos adaptados:", orderData)
+
+      const newOrder = await createOrder(orderData)
+
+      console.log("✅ Orden creada exitosamente:", newOrder.id)
+
+      // Limpiar carrito después de crear la orden
+      await clearCart()
+
+      toast.success(`¡Orden #${newOrder.id} creada exitosamente!`)
+
+      // Redirigir a página de confirmación
+      // router.push(`/order-confirmation/${newOrder.id}`)
+    } catch (error) {
+      console.error("❌ Error en checkout:", error)
+      const errorMessage = getErrorMessage(error)
+      toast.error(`Error en checkout: ${errorMessage}`)
     }
   }
 
@@ -49,7 +109,7 @@ const ShoppingCart = () => {
   }
 
   // Estado de carga
-  if (isLoading && !cart) {
+  if (cartLoading && !cart) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4 flex items-center justify-center">
         <div className="text-center">
@@ -102,7 +162,10 @@ const ShoppingCart = () => {
               <p className="text-gray-600 mb-6">
                 ¡Descubre nuestros productos y agrega algunos al carrito!
               </p>
-              <button className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors">
+              <button
+                onClick={() => router.push("/home")}
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
+              >
                 Explorar Productos
               </button>
             </div>
@@ -130,7 +193,7 @@ const ShoppingCart = () => {
 
                 <div className="divide-y divide-gray-100">
                   {cart?.items?.map((item) => {
-                    // ✅ CORREGIDO: Acceder a los datos del producto anidado
+                    // ✅ Acceder a los datos del producto anidado
                     const itemPrice = Number(item.product?.price) || 0
                     const itemQuantity = Number(item.quantity) || 1
                     const itemName = item.product?.name || "Producto sin nombre"
@@ -291,13 +354,17 @@ const ShoppingCart = () => {
                 </div>
 
                 <div className="p-6 pt-0 space-y-3">
+                  {/* ✅ Botón de checkout actualizado */}
                   <button
                     onClick={handleCheckout}
                     disabled={isLoading || isEmpty}
                     className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 group disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        {orderLoading ? "Creando orden..." : "Procesando..."}
+                      </>
                     ) : (
                       <>
                         Proceder al Checkout
@@ -306,7 +373,10 @@ const ShoppingCart = () => {
                     )}
                   </button>
 
-                  <button className="w-full border-2 border-black text-black hover:bg-black hover:text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                  <button
+                    onClick={() => router.push("/home")}
+                    className="w-full border-2 border-black text-black hover:bg-black hover:text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                  >
                     Continuar Comprando
                   </button>
                 </div>
@@ -320,6 +390,7 @@ const ShoppingCart = () => {
                       <li>✓ Pago 100% seguro</li>
                       <li>✓ Envío con seguimiento</li>
                       <li>✓ Garantía de devolución</li>
+                      <li>✓ Checkout rápido y automático</li>
                     </ul>
                   </div>
                 </div>
