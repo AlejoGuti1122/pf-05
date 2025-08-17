@@ -1,3 +1,5 @@
+"use client"
+
 import ShoppingCart from "@/features/cart/components/CartView"
 import LayoutWrapper from "@/shared/Wrapper"
 import React from "react"

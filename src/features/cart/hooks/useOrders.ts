@@ -1,182 +1,221 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// hooks/useOrder.ts
+import { useState, useEffect } from "react"
+import { Order } from "../types/orders"
+import { ordersService } from "../services/orders-service"
 
-"use client"
-
-import { useState, useCallback, useMemo } from "react"
-import { toast } from "sonner"
-import { CreateOrderRequest, Order, UseOrderReturn } from "../types/orders"
-import { orderService } from "../services/orders-service"
-
-export const useOrder = (): UseOrderReturn => {
-  const [order, setOrder] = useState<Order | null>(null)
+// Hook específico para obtener órdenes del usuario (para el perfil)
+export const useUserOrders = (userId: string) => {
   const [orders, setOrders] = useState<Order[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Función helper para manejar errores
-  const handleError = useCallback((error: any, defaultMessage: string) => {
-    const message = error?.message || defaultMessage
-    setError(message)
-    toast.error(message)
-    console.error("❌ [useOrder] Error:", error)
-  }, [])
+  const fetchUserOrders = async () => {
+    if (!userId) {
+      setIsLoading(false)
+      return
+    }
 
-  // Crear nueva orden
-  const createOrder = useCallback(
-    async (orderData: CreateOrderRequest): Promise<Order> => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        console.log("🛒 [useOrder] Creando orden:", orderData)
+    setIsLoading(true)
+    setError(null)
 
-        const newOrder = await orderService.createOrder(orderData)
-
-        console.log("✅ [useOrder] Orden creada:", newOrder)
-        setOrder(newOrder)
-
-        // Agregar a la lista de órdenes si ya está cargada
-        setOrders((prev) => [newOrder, ...prev])
-
-        toast.success("¡Orden creada exitosamente!")
-        return newOrder
-      } catch (error) {
-        handleError(error, "Error al crear la orden")
-        throw error
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [handleError]
-  )
-
-  // Obtener orden por ID
-  const getOrder = useCallback(
-    async (orderId: string): Promise<Order> => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        console.log("🔍 [useOrder] Obteniendo orden:", orderId)
-
-        const orderData = await orderService.getOrder(orderId)
-
-        console.log("✅ [useOrder] Orden obtenida:", orderData)
-        setOrder(orderData)
-
-        return orderData
-      } catch (error) {
-        handleError(error, "Error al obtener la orden")
-        throw error
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [handleError]
-  )
-
-  // Obtener todas las órdenes del usuario
-  const getUserOrders = useCallback(async (): Promise<Order[]> => {
     try {
-      setIsLoading(true)
-      setError(null)
-      console.log("📋 [useOrder] Obteniendo órdenes del usuario")
-
-      const userOrders = await orderService.getUserOrders()
-
-      console.log("✅ [useOrder] Órdenes obtenidas:", userOrders.length)
+      const userOrders = await ordersService.getOrdersByUserId(userId)
       setOrders(userOrders)
-
-      return userOrders
-    } catch (error) {
-      handleError(error, "Error al obtener las órdenes")
-      throw error
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error al cargar las órdenes"
+      setError(errorMessage)
+      console.error("Error fetching user orders:", err)
     } finally {
       setIsLoading(false)
     }
-  }, [handleError])
+  }
 
-  // Cancelar orden
-  const cancelOrder = useCallback(
-    async (orderId: string): Promise<void> => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        console.log("❌ [useOrder] Cancelando orden:", orderId)
+  useEffect(() => {
+    fetchUserOrders()
+  }, [userId])
 
-        await orderService.cancelOrder(orderId)
+  const refetch = () => {
+    fetchUserOrders()
+  }
 
-        // Actualizar estado local
-        setOrders((prev) =>
-          prev.map((order) =>
-            order.id === orderId
-              ? { ...order, status: "CANCELLED" as any }
-              : order
-          )
-        )
+  // Funciones helper
+  const getOrdersByStatus = (status: Order["status"]) => {
+    return orders.filter((order) => order.status === status)
+  }
 
-        if (order?.id === orderId) {
-          setOrder((prev) =>
-            prev ? { ...prev, status: "CANCELLED" as any } : null
-          )
-        }
+  const getTotalSpent = () => {
+    return orders.reduce((total, order) => total + order.total, 0)
+  }
 
-        toast.success("Orden cancelada exitosamente")
-      } catch (error) {
-        handleError(error, "Error al cancelar la orden")
-        throw error
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [handleError, order]
-  )
-
-  // Refrescar datos
-  const refetch = useCallback(async () => {
-    try {
-      await getUserOrders()
-    } catch (error) {
-      console.error("Error al refrescar órdenes:", error)
-    }
-  }, [getUserOrders])
-
-  // Computed values con useMemo
-  const computedValues = useMemo(
-    () => ({
-      hasOrders: orders.length > 0,
-      pendingOrders: orders.filter((order) => order.status === "PENDING"),
-      completedOrders: orders.filter((order) => order.status === "DELIVERED"),
-      totalSpent: orders
-        .filter((order) => order.status !== "CANCELLED")
-        .reduce((sum, order) => sum + order.total, 0),
-    }),
-    [orders]
-  )
-
-  // Debug logs
-  console.log("🎯 [useOrder] Estado actual:", {
-    orderCount: orders.length,
-    currentOrder: order?.id,
-    isLoading,
-    error,
-    ...computedValues,
-  })
+  const getRecentOrders = (limit: number = 5) => {
+    return orders
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, limit)
+  }
 
   return {
-    // Estado básico
-    order,
     orders,
     isLoading,
     error,
-
-    // Acciones
-    createOrder,
-    getOrder,
-    getUserOrders,
-    cancelOrder,
     refetch,
+    // Helper functions
+    getOrdersByStatus,
+    getTotalSpent,
+    getRecentOrders,
+    // Computed values
+    totalOrders: orders.length,
+    isEmpty: orders.length === 0,
+  }
+}
 
-    // Valores computados (opcional, para mayor funcionalidad)
-    ...computedValues,
+// Hook para una orden específica
+export const useSingleOrder = (orderId: string) => {
+  const [order, setOrder] = useState<Order | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchOrder = async () => {
+    if (!orderId) {
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const orderData = await ordersService.getOrderById(orderId)
+      setOrder(orderData)
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error al cargar la orden"
+      setError(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchOrder()
+  }, [orderId])
+
+  const refetch = () => {
+    fetchOrder()
+  }
+
+  return {
+    order,
+    isLoading,
+    error,
+    refetch,
+  }
+}
+
+// Hook completo con crear y obtener órdenes
+export const useOrders = (userId?: string) => {
+  const [orders, setOrders] = useState<Order[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Estados específicos para crear órdenes
+  const [isCreating, setIsCreating] = useState<boolean>(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  const fetchUserOrders = async () => {
+    if (!userId) return
+    
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const userOrders = await ordersService.getOrdersByUserId(userId)
+      setOrders(userOrders)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar las órdenes'
+      setError(errorMessage)
+      console.error('Error fetching user orders:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (userId) {
+      fetchUserOrders()
+    }
+  }, [userId])
+
+  // Función para crear orden
+  const createOrder = async (orderData: any) => {
+    setIsCreating(true)
+    setCreateError(null)
+    
+    try {
+      const response = await ordersService.createOrder(orderData)
+      
+      // Actualizar lista de órdenes si tenemos userId
+      if (userId) {
+        await fetchUserOrders()
+      }
+      
+      return response
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear la orden'
+      setCreateError(errorMessage)
+      console.error('Error creating order:', err)
+      throw err
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const refetch = () => {
+    if (userId) {
+      fetchUserOrders()
+    }
+  }
+
+  // Funciones helper
+  const getOrdersByStatus = (status: Order["status"]) => {
+    return orders.filter((order) => order.status === status)
+  }
+
+  const getTotalSpent = () => {
+    return orders.reduce((total, order) => total + order.total, 0)
+  }
+
+  const getRecentOrders = (limit: number = 5) => {
+    return orders
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, limit)
+  }
+
+  return {
+    // Estados principales
+    orders,
+    isLoading: isLoading || isCreating, // Combina ambos loadings
+    error: error || createError, // Combina ambos errores
+    refetch,
+    
+    // Crear órdenes
+    createOrder,
+    isCreating,
+    createError,
+    
+    // Helper functions
+    getOrdersByStatus,
+    getTotalSpent,
+    getRecentOrders,
+    
+    // Computed values
+    totalOrders: orders.length,
+    isEmpty: orders.length === 0,
   }
 }

@@ -14,7 +14,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useCartContext } from "../../context/index"
-import { useOrder } from "../../hooks/useOrders"
+import { useOrders } from "../../hooks/useOrders"
 
 const ShoppingCart = () => {
   const router = useRouter()
@@ -40,13 +40,13 @@ const ShoppingCart = () => {
   } = useCartContext()
 
   // ✅ Hook de órdenes
-  const { createOrder, isLoading: orderLoading } = useOrder()
+  const { createOrder, isLoading: orderLoading } = useOrders()
 
   // ✅ Loading combinado
   const isLoading = cartLoading || orderLoading
 
-  // ✅ Calcular totales con validación de undefined
-  const subtotal = Number(cart?.total || cart?.subtotal || 0)
+  // ✅ ACTUALIZADO: Calcular totales usando la nueva estructura del backend
+  const subtotal = Number(cart?.summary?.subtotal || cart?.summary?.total || 0)
   const shipping = subtotal > 500 ? 0 : 29.99
   const tax = subtotal * 0.1
   const finalTotal = subtotal + shipping + tax
@@ -57,12 +57,14 @@ const ShoppingCart = () => {
       console.log("🔍 Validando carrito para checkout...")
       const validation = await validateForCheckout()
 
+      console.log("📦 Respuesta de validación:", validation) // Debug
+
       const isValidCart =
         validation &&
-        validation.status === "ACTIVE" &&
+        validation.status === "pending" && // ✅ Cambio aquí
         validation.items &&
         validation.items.length > 0 &&
-        validation.total > 0
+        (validation.subtotal > 0 || validation.summary?.total > 0) // ✅ Y aquí
 
       if (!isValidCart) {
         toast.error("El carrito no es válido para proceder al checkout")
@@ -72,27 +74,22 @@ const ShoppingCart = () => {
 
       console.log("✅ Carrito validado correctamente")
 
-      // ✅ FORMATO CORRECTO: Lo que espera tu API
+      // ✅ Crear orden con los datos validados
       const orderData = {
-        userId: JSON.parse(localStorage.getItem("user") || "{}").id, // TODO: Obtener del contexto de usuario
+        userId: JSON.parse(localStorage.getItem("user") || "{}").id,
         products: validation.items.map((item: any) => ({
-          id: item.product.id, // Usar el ID del producto
+          id: item.productId || item.id,
         })),
       }
 
-      console.log("🛒 Creando orden con datos adaptados:", orderData)
+      console.log("🛒 Creando orden con datos:", orderData)
 
       const newOrder = await createOrder(orderData)
 
       console.log("✅ Orden creada exitosamente:", newOrder.id)
 
-      // Limpiar carrito después de crear la orden
       await clearCart()
-
       toast.success(`¡Orden #${newOrder.id} creada exitosamente!`)
-
-      // Redirigir a página de confirmación
-      // router.push(`/order-confirmation/${newOrder.id}`)
     } catch (error) {
       console.error("❌ Error en checkout:", error)
       const errorMessage = getErrorMessage(error)
@@ -193,11 +190,14 @@ const ShoppingCart = () => {
 
                 <div className="divide-y divide-gray-100">
                   {cart?.items?.map((item) => {
-                    // ✅ Acceder a los datos del producto anidado
-                    const itemPrice = Number(item.product?.price) || 0
+                    // ✅ ACTUALIZADO: Usar la nueva estructura del backend
+                    const itemPrice =
+                      Number(
+                        item.price || item.unitPrice || item.unitPriceCurrent
+                      ) || 0
                     const itemQuantity = Number(item.quantity) || 1
-                    const itemName = item.product?.name || "Producto sin nombre"
-                    const itemImage = item.product?.imageUrl
+                    const itemName = item.name || "Producto sin nombre"
+                    const itemImage = item.imgUrl // ✅ Cambio: imgUrl en lugar de imageUrl
 
                     return (
                       <div
@@ -236,6 +236,27 @@ const ShoppingCart = () => {
                               ${itemPrice.toFixed(2)}
                             </p>
 
+                            {/* ✅ NUEVO: Mostrar flags si existen */}
+                            {item.flags && (
+                              <div className="mb-3 space-y-1">
+                                {item.flags.priceChanged && (
+                                  <span className="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
+                                    Precio cambió
+                                  </span>
+                                )}
+                                {item.flags.insufficientStock && (
+                                  <span className="inline-block bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
+                                    Stock limitado
+                                  </span>
+                                )}
+                                {item.flags.outOfStock && (
+                                  <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                                    Sin stock
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
                             {/* Quantity Controls */}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -250,7 +271,11 @@ const ShoppingCart = () => {
                                         itemQuantity - 1
                                       )
                                     }
-                                    disabled={isLoading || itemQuantity <= 1}
+                                    disabled={
+                                      isLoading ||
+                                      itemQuantity <= 1 ||
+                                      item.flags?.outOfStock
+                                    }
                                     className="p-2 hover:bg-gray-100 transition-colors rounded-l-lg disabled:opacity-50"
                                   >
                                     <Minus className="w-4 h-4" />
@@ -265,7 +290,11 @@ const ShoppingCart = () => {
                                         itemQuantity + 1
                                       )
                                     }
-                                    disabled={isLoading}
+                                    disabled={
+                                      isLoading ||
+                                      item.flags?.outOfStock ||
+                                      item.flags?.insufficientStock
+                                    }
                                     className="p-2 hover:bg-gray-100 transition-colors rounded-r-lg disabled:opacity-50"
                                   >
                                     <Plus className="w-4 h-4" />
@@ -286,8 +315,23 @@ const ShoppingCart = () => {
                           {/* Item Total */}
                           <div className="text-right sm:text-left">
                             <p className="text-lg font-bold text-black">
-                              ${(itemPrice * itemQuantity).toFixed(2)}
+                              $
+                              {(
+                                item.lineTotal ||
+                                item.total ||
+                                itemPrice * itemQuantity
+                              ).toFixed(2)}
                             </p>
+                            {/* ✅ NUEVO: Mostrar precio unitario actual vs snapshot si cambió */}
+                            {item.unitPriceSnapshot &&
+                              item.unitPriceCurrent &&
+                              item.unitPriceSnapshot !==
+                                item.unitPriceCurrent && (
+                                <p className="text-sm text-gray-500 line-through">
+                                  Antes: $
+                                  {Number(item.unitPriceSnapshot).toFixed(2)}
+                                </p>
+                              )}
                           </div>
                         </div>
                       </div>
@@ -314,6 +358,16 @@ const ShoppingCart = () => {
                     </span>
                   </div>
 
+                  {/* ✅ NUEVO: Mostrar descuentos si existen */}
+                  {cart?.summary?.discount && cart.summary.discount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Descuento</span>
+                      <span className="font-semibold text-green-600">
+                        -${cart.summary.discount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between">
                     <span className="text-gray-600">Envío</span>
                     <span className="font-semibold text-black">
@@ -328,7 +382,7 @@ const ShoppingCart = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Impuestos</span>
                     <span className="font-semibold text-black">
-                      ${tax.toFixed(2)}
+                      ${(cart?.summary?.tax || tax).toFixed(2)}
                     </span>
                   </div>
 
@@ -342,6 +396,17 @@ const ShoppingCart = () => {
                       </span>
                     </div>
                   </div>
+
+                  {/* ✅ NUEVO: Mostrar advertencias si hay items inválidos */}
+                  {cart?.summary?.invalidItemsCount &&
+                    cart.summary.invalidItemsCount > 0 && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                        <p className="text-sm text-yellow-700">
+                          ⚠️ {cart.summary.invalidItemsCount} producto(s) tienen
+                          problemas de stock o precio
+                        </p>
+                      </div>
+                    )}
 
                   {shipping > 0 && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -357,7 +422,14 @@ const ShoppingCart = () => {
                   {/* ✅ Botón de checkout actualizado */}
                   <button
                     onClick={handleCheckout}
-                    disabled={isLoading || isEmpty}
+                    disabled={
+                      isLoading ||
+                      isEmpty ||
+                      Boolean(
+                        cart?.summary?.invalidItemsCount &&
+                          cart.summary.invalidItemsCount > 0
+                      )
+                    }
                     className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 group disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
