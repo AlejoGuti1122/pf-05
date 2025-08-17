@@ -1,131 +1,119 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// services/orderService.ts
+// services/orders-service.ts
+const API_BASE_URL = "http://localhost:3001"
 
-import { CreateOrderRequest, GetOrderResponse, Order } from "../types/orders"
+// Función helper para obtener headers con autenticación
+const getAuthHeaders = () => {
+  const token =
+    localStorage.getItem("token") || localStorage.getItem("authToken")
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+  console.log("🔑 Token encontrado:", !!token) // Debug
+  console.log(
+    "🔑 Token (primeros 20 chars):",
+    token ? token.substring(0, 20) + "..." : "No token"
+  ) // Debug
 
-class OrderService {
-  private async makeRequest<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    try {
-      // Obtener token de autenticación (ajusta según tu método de auth)
-      const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token")
-
-      const config: RequestInit = {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-          ...options.headers,
-        },
-        ...options,
-      }
-
-      console.log(`🔗 [ORDER SERVICE] ${options.method || "GET"} ${endpoint}`)
-
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
-
-      console.log(`📡 [ORDER SERVICE] Response status: ${response.status}`)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        )
-      }
-
-      const data = await response.json()
-      console.log(`✅ [ORDER SERVICE] Response data:`, data)
-
-      return data
-    } catch (error) {
-      console.error(`❌ [ORDER SERVICE] Error en ${endpoint}:`, error)
-      throw error
-    }
-  }
-
-  // Crear nueva orden
-  async createOrder(orderData: CreateOrderRequest): Promise<Order> {
-    console.log("🛒 [ORDER SERVICE] Creando orden:", orderData)
-
-    const response = await this.makeRequest<any>("/orders", {
-      method: "POST",
-      body: JSON.stringify(orderData),
-    })
-
-    console.log("📡 [ORDER SERVICE] Respuesta completa:", response)
-
-    // ✅ NUEVO: El backend devuelve directamente la orden, no envuelto en {success, data}
-    if (!response || !response.id) {
-      throw new Error("Error al crear la orden - respuesta inválida")
-    }
-
-    // ✅ NUEVO: Retornar la respuesta directamente (ya es la orden)
-    return response
-  }
-
-  // Obtener orden por ID
-  async getOrder(orderId: string): Promise<Order> {
-    console.log("🔍 [ORDER SERVICE] Obteniendo orden:", orderId)
-
-    const response = await this.makeRequest<GetOrderResponse>(
-      `/orders/${orderId}`
-    )
-
-    if (!response.success || !response.data) {
-      throw new Error(response.message || "Error al obtener la orden")
-    }
-
-    return response.data
-  }
-
-  // Obtener todas las órdenes del usuario
-  async getUserOrders(): Promise<Order[]> {
-    console.log("📋 [ORDER SERVICE] Obteniendo órdenes del usuario")
-
-    const response = await this.makeRequest<{
-      success: boolean
-      data: Order[]
-    }>("/orders")
-
-    if (!response.success || !response.data) {
-      throw new Error("Error al obtener las órdenes")
-    }
-
-    return response.data
-  }
-
-  // Cancelar orden
-  async cancelOrder(orderId: string): Promise<void> {
-    console.log("❌ [ORDER SERVICE] Cancelando orden:", orderId)
-
-    await this.makeRequest(`/orders/${orderId}/cancel`, {
-      method: "PATCH",
-    })
-  }
-
-  // Actualizar estado de orden (para admin)
-  async updateOrderStatus(orderId: string, status: string): Promise<Order> {
-    console.log("🔄 [ORDER SERVICE] Actualizando estado:", { orderId, status })
-
-    const response = await this.makeRequest<GetOrderResponse>(
-      `/orders/${orderId}/status`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      }
-    )
-
-    if (!response.success || !response.data) {
-      throw new Error(response.message || "Error al actualizar el estado")
-    }
-
-    return response.data
+  return {
+    "Content-Type": "application/json",
+    ...(token && { Authorization: `Bearer ${token}` }),
   }
 }
 
-// Exportar instancia singleton
-export const orderService = new OrderService()
+export const ordersService = {
+  // Obtener órdenes por ID de usuario - ENDPOINT /orders/{id}
+  getOrdersByUserId: async (userId: string) => {
+    try {
+      console.log("🔗 Calling orders API:", `${API_BASE_URL}/orders/${userId}`)
+
+      const response = await fetch(`${API_BASE_URL}/orders/${userId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      })
+
+      console.log("📡 Orders response status:", response.status)
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const orders = await response.json()
+      return orders
+    } catch (error) {
+      console.error("Error fetching user orders:", error)
+      throw error
+    }
+  },
+
+  // Obtener una orden específica
+  getOrderById: async (orderId: string) => {
+    try {
+      console.log(
+        "🔗 Calling single order API:",
+        `${API_BASE_URL}/orders/single/${orderId}`
+      )
+
+      const response = await fetch(`${API_BASE_URL}/orders/single/${orderId}`, {
+        method: "GET",
+        headers: getAuthHeaders(), // ✅ AGREGADO: Headers de autenticación
+        credentials: "include",
+      })
+
+      console.log("📡 Single order response status:", response.status)
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const order = await response.json()
+      return order
+    } catch (error) {
+      console.error("Error fetching order:", error)
+      throw error
+    }
+  },
+
+  // Crear nueva orden (corregido con autenticación)
+  createOrder: async (orderData: any) => {
+    try {
+      console.log("🔗 Calling create order API:", `${API_BASE_URL}/orders`)
+      console.log("📦 Order data:", orderData)
+
+      const headers = getAuthHeaders()
+      console.log("🔑 Headers being sent:", headers) // Debug
+
+      const response = await fetch(`${API_BASE_URL}/orders`, {
+        method: "POST",
+        headers: getAuthHeaders(), // ✅ CORREGIDO: Usar headers de autenticación
+        credentials: "include", // ✅ AGREGADO: Credenciales
+        body: JSON.stringify(orderData),
+      })
+
+      console.log("📡 Create order response status:", response.status)
+
+      if (!response.ok) {
+        // ✅ MEJORADO: Obtener detalles del error
+        let errorDetails
+        try {
+          errorDetails = await response.json()
+        } catch {
+          errorDetails = { message: "Error de conexión" }
+        }
+
+        console.error("❌ Create order error details:", errorDetails)
+        throw new Error(
+          `HTTP error! status: ${response.status} - ${
+            errorDetails.message || "Unknown error"
+          }`
+        )
+      }
+
+      const result = await response.json()
+      console.log("✅ Order created successfully:", result)
+      return result
+    } catch (error) {
+      console.error("Error creating order:", error)
+      throw error
+    }
+  },
+}

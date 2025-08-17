@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // services/cartService.ts
 
 import {
@@ -44,7 +45,33 @@ class CartService {
         throw new Error(error.message || "Error en la petición")
       }
 
-      const data = await response.json()
+      // ✅ NUEVO: Manejar respuestas DELETE correctamente
+      if (options.method === "DELETE" && response.ok) {
+        console.log("✅ DELETE exitoso - respuesta vacía esperada")
+        return { success: true, message: "Deleted successfully" }
+      }
+
+      // ✅ NUEVO: Verificar si hay contenido antes de parsear JSON
+      const contentLength = response.headers.get("content-length")
+      const contentType = response.headers.get("content-type")
+
+      // Si no hay contenido o no es JSON, no parsear
+      if (contentLength === "0" || !contentType?.includes("application/json")) {
+        console.log("✅ Respuesta sin contenido JSON")
+        return response.ok ? { success: true } : null
+      }
+
+      // ✅ NUEVO: Verificar que hay texto antes de parsear
+      const text = await response.text()
+      console.log("📋 Response text:", `"${text}"`) // Debug
+
+      if (!text || text.trim().length === 0) {
+        console.log("✅ Respuesta vacía pero exitosa")
+        return response.ok ? { success: true } : null
+      }
+
+      // Solo parsear si hay contenido real
+      const data = JSON.parse(text)
       console.log("📦 API Response data:", data) // Debug
       return data
     } catch (error) {
@@ -53,9 +80,9 @@ class CartService {
     }
   }
 
-  // GET /cart/me - Obtener carrito vigente
+  // GET /cart - Obtener carrito vigente (actualizado endpoint)
   async getCurrentCart(): Promise<CartResponse> {
-    const response = await this.fetchWithAuth("/cart/me")
+    const response = await this.fetchWithAuth("/cart")
     console.log("🛒 Respuesta del carrito:", response) // Debug
     return response
   }
@@ -81,6 +108,7 @@ class CartService {
     itemId: string,
     data: UpdateItemQuantityRequest
   ): Promise<CartItemResponse> {
+    console.log("🔄 Actualizando cantidad:", { itemId, data }) // Debug
     return this.fetchWithAuth(`/cart/items/${itemId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -89,16 +117,22 @@ class CartService {
 
   // DELETE /cart/items/{itemId} - Eliminar item
   async removeItem(itemId: string): Promise<{ success: boolean }> {
-    return this.fetchWithAuth(`/cart/items/${itemId}`, {
+    console.log("🗑️ Eliminando item:", itemId) // Debug
+    const response = await this.fetchWithAuth(`/cart/items/${itemId}`, {
       method: "DELETE",
     })
+    console.log("✅ Item eliminado:", response) // Debug
+    return response
   }
 
   // DELETE /cart - Vaciar carrito
   async clearCart(): Promise<{ success: boolean }> {
-    return this.fetchWithAuth("/cart", {
+    console.log("🧹 Vaciando carrito...") // Debug
+    const response = await this.fetchWithAuth("/cart", {
       method: "DELETE",
     })
+    console.log("✅ Carrito vaciado:", response) // Debug
+    return response
   }
 
   // POST /cart - Clear carrito (invitado)
@@ -123,15 +157,22 @@ class CartService {
     })
   }
 
-  // POST /cart/checkout/validate - Validar antes de checkout
+  // ✅ CORREGIDO: POST /cart/checkout - Validar y preparar payload para checkout
   async validateCartForCheckout(): Promise<{
     success: boolean
     valid: boolean
     errors?: string[]
+    items?: any[]
+    status?: string
+    summary?: any
   }> {
-    return this.fetchWithAuth("/cart/checkout/validate", {
+    console.log("🔍 Validando carrito para checkout...") // Debug
+    const response = await this.fetchWithAuth("/cart/checkout", {
+      // ← CAMBIO AQUÍ
       method: "POST",
     })
+    console.log("✅ Respuesta validación checkout:", response) // Debug
+    return response
   }
 }
 

@@ -1,3 +1,5 @@
+"use client"
+
 import UserProfile from "@/features/profile/components/Profile"
 import LayoutWrapper from "@/shared/Wrapper"
 import React from "react"
