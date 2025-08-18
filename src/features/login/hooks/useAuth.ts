@@ -1,4 +1,4 @@
-// hooks/useAuth.ts - VERSIÓN SIMPLIFICADA
+// hooks/useAuth.ts - VERSIÓN MEJORADA
 import { useState, useCallback, useEffect } from "react"
 import { User, LoginRequest, AuthResponse } from "../types/login"
 import { RegisterRequest } from "../../register/types/register"
@@ -21,41 +21,109 @@ const useAuth = (): UseAuthReturn => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // ✅ INICIALIZACIÓN SIMPLIFICADA
-  useEffect(() => {
-    const initializeAuth = () => {
-      console.log("🔄 useAuth - Inicializando...")
+  // ✅ FUNCIÓN PARA VERIFICAR AUTH STATE
+  const checkAuthState = useCallback(() => {
+    console.log("🔄 useAuth - Verificando estado de auth...")
 
-      try {
-        const savedUser = authService.getUser()
-        const isAuth = authService.isAuthenticated()
+    try {
+      const savedUser = authService.getUser()
+      const isAuth = authService.isAuthenticated()
 
-        console.log("🔍 useAuth - savedUser:", savedUser)
-        console.log("🔍 useAuth - isAuthenticated:", isAuth)
+      console.log("🔍 useAuth - savedUser:", savedUser)
+      console.log("🔍 useAuth - isAuthenticated:", isAuth)
 
-        if (savedUser && isAuth) {
-          setUser(savedUser)
-          console.log("✅ useAuth - Usuario configurado:", {
-            email: savedUser.email,
-            isAdmin: savedUser.isAdmin,
-            isSuperAdmin: savedUser.isSuperAdmin,
-          })
-        } else {
-          setUser(null)
-          console.log("❌ useAuth - No hay usuario válido")
-        }
-      } catch (err) {
-        console.error("❌ useAuth - Error en inicialización:", err)
+      if (savedUser && isAuth) {
+        setUser(savedUser)
+        console.log("✅ useAuth - Usuario configurado:", {
+          email: savedUser.email,
+          isAdmin: savedUser.isAdmin,
+          isSuperAdmin: savedUser.isSuperAdmin,
+        })
+        return true
+      } else {
         setUser(null)
-        setError("Error al inicializar autenticación")
-      } finally {
-        setLoading(false)
-        console.log("✅ useAuth - Inicialización completada")
+        console.log("❌ useAuth - No hay usuario válido")
+        return false
       }
+    } catch (err) {
+      console.error("❌ useAuth - Error verificando auth state:", err)
+      setUser(null)
+      setError("Error al verificar autenticación")
+      return false
+    }
+  }, [])
+
+  // ✅ INICIALIZACIÓN CON MÚLTIPLES VERIFICACIONES
+  useEffect(() => {
+    const initializeAuth = async () => {
+      console.log("🔄 useAuth - Inicializando...")
+      setLoading(true)
+
+      // Primera verificación inmediata
+      const hasUser = checkAuthState()
+
+      // ✅ NUEVO: Si no hay usuario, esperar un poco y verificar de nuevo
+      // Esto ayuda con el timing del login de Google
+      if (!hasUser) {
+        console.log(
+          "🔄 useAuth - Sin usuario, esperando 500ms y verificando de nuevo..."
+        )
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        checkAuthState()
+      }
+
+      setLoading(false)
+      console.log("✅ useAuth - Inicialización completada")
     }
 
     initializeAuth()
-  }, [])
+  }, [checkAuthState])
+
+  // ✅ NUEVO: Escuchar cambios en localStorage (para Google OAuth)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "token" || e.key === "user") {
+        console.log("🔔 useAuth - Cambio detectado en localStorage:", e.key)
+
+        // Pequeño delay para asegurar que todos los datos estén guardados
+        setTimeout(() => {
+          checkAuthState()
+        }, 100)
+      }
+    }
+
+    // ✅ NUEVO: Escuchar evento customizado para forzar verificación
+    const handleAuthUpdate = () => {
+      console.log("🔔 useAuth - Evento de actualización de auth recibido")
+      checkAuthState()
+    }
+
+    // Agregar listeners
+    window.addEventListener("storage", handleStorageChange)
+    window.addEventListener("auth-updated", handleAuthUpdate)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("auth-updated", handleAuthUpdate)
+    }
+  }, [checkAuthState])
+
+  // ✅ NUEVO: Verificación periódica ligera (cada 30 segundos)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Solo verificar si no tenemos usuario pero hay token
+      const token = localStorage.getItem("token")
+      if (!user && token) {
+        console.log(
+          "🔄 useAuth - Verificación periódica: hay token pero no usuario"
+        )
+        checkAuthState()
+      }
+    }, 30000) // 30 segundos
+
+    return () => clearInterval(interval)
+  }, [user, checkAuthState])
 
   // ✅ LOGIN
   const login = useCallback(
@@ -72,6 +140,9 @@ const useAuth = (): UseAuthReturn => {
 
         // Actualizar estado
         setUser(response.user)
+
+        // ✅ NUEVO: Disparar evento para notificar cambio
+        window.dispatchEvent(new CustomEvent("auth-updated"))
 
         return response
       } catch (err) {
@@ -96,6 +167,10 @@ const useAuth = (): UseAuthReturn => {
       try {
         const response: AuthResponse = await authService.register(userData)
         setUser(response.user)
+
+        // ✅ NUEVO: Disparar evento para notificar cambio
+        window.dispatchEvent(new CustomEvent("auth-updated"))
+
         return response
       } catch (err) {
         const errorMessage =
@@ -109,7 +184,7 @@ const useAuth = (): UseAuthReturn => {
     []
   )
 
-  // ✅ LOGOUT
+  // ✅ LOGOUT MEJORADO
   const logout = useCallback(async (): Promise<void> => {
     setLoading(true)
 
@@ -118,6 +193,10 @@ const useAuth = (): UseAuthReturn => {
       await authService.logout()
       setUser(null)
       setError(null)
+
+      // ✅ NUEVO: Disparar evento para notificar cambio
+      window.dispatchEvent(new CustomEvent("auth-updated"))
+
       console.log("✅ useAuth - Logout completado")
       window.location.href = "/"
     } catch (error) {

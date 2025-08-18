@@ -36,26 +36,43 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
     onFilterChange({ selectedBrands: newSelectedBrands })
   }
 
-  // ✅ FUNCIÓN SIMPLIFICADA - SOLO MARCAS Y STOCK
+  // ✅ NUEVO: Manejar cambios en el rango de años
+  const handleYearChange = (type: 'min' | 'max', value: number) => {
+    onFilterChange({
+      yearRange: {
+        ...filters.yearRange,
+        [type]: value
+      }
+    })
+  }
+
+  // ✅ ACTUALIZADO - Solo incluye filtros de marcas y años
   const getActiveFiltersCount = () => {
     let count = 0
 
-    // Marcas activas si hay alguna seleccionada
+    // Marcas activas
     if (filters.selectedBrands.length > 0) count++
-
-    // Stock activo si no es "all"
-    if (filters.stockFilter !== "all") count++
+    
+    // Años activos (si no son los valores por defecto)
+    if (filters.yearRange.min > 1990 || filters.yearRange.max < new Date().getFullYear()) count++
 
     return count
   }
 
-  // ✅ FUNCIONES PARA REMOVER FILTROS - SOLO LAS NECESARIAS
+  // ✅ FUNCIONES PARA REMOVER FILTROS
   const removeBrandFilter = (brand: string) => {
     handleBrandToggle(brand)
   }
 
-  const removeStockFilter = () => {
-    onFilterChange({ stockFilter: "all" })
+  const removeYearFilter = () => {
+    onFilterChange({
+      yearRange: { min: 1990, max: new Date().getFullYear() }
+    })
+  }
+
+  // ✅ VERIFICAR SI EL FILTRO DE AÑO ESTÁ ACTIVO
+  const isYearFilterActive = () => {
+    return filters.yearRange.min > 1990 || filters.yearRange.max < new Date().getFullYear()
   }
 
   return (
@@ -64,7 +81,8 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
       {showFilters && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Filtro de marcas */}
+            
+            {/* ✅ Filtro de marcas */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Marcas
@@ -93,27 +111,41 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
               </div>
             </div>
 
-            {/* Filtro de stock */}
+            {/* ✅ Filtro de años */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Disponibilidad
+                Año del Vehículo
               </label>
-              <select
-                value={filters.stockFilter}
-                onChange={(e) =>
-                  onFilterChange({
-                    stockFilter: e.target.value as
-                      | "all"
-                      | "inStock"
-                      | "outOfStock",
-                  })
-                }
-                className="w-full px-2 py-1 border rounded text-sm"
-              >
-                <option value="all">Todos</option>
-                <option value="inStock">En Stock</option>
-                <option value="outOfStock">Sin Stock</option>
-              </select>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">Desde</label>
+                  <input
+                    type="number"
+                    value={filters.yearRange.min}
+                    onChange={(e) => handleYearChange('min', parseInt(e.target.value) || 1990)}
+                    min={1990}
+                    max={new Date().getFullYear()}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="1990"
+                  />
+                </div>
+                <span className="text-gray-400 mt-5">-</span>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">Hasta</label>
+                  <input
+                    type="number"
+                    value={filters.yearRange.max}
+                    onChange={(e) => handleYearChange('max', parseInt(e.target.value) || new Date().getFullYear())}
+                    min={1990}
+                    max={new Date().getFullYear()}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={new Date().getFullYear().toString()}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Filtra repuestos compatibles con vehículos de estos años
+              </p>
             </div>
           </div>
 
@@ -129,7 +161,7 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
         </div>
       )}
 
-      {/* ✅ CHIPS DE FILTROS ACTIVOS - SOLO MARCAS Y STOCK */}
+      {/* ✅ CHIPS DE FILTROS ACTIVOS - Solo marcas y años */}
       {getActiveFiltersCount() > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {/* Chips de marcas */}
@@ -144,12 +176,12 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
               </button>
             </span>
           ))}
-
-          {/* Chip de stock */}
-          {filters.stockFilter !== "all" && (
-            <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-sm flex items-center gap-1">
-              {filters.stockFilter === "inStock" ? "En Stock" : "Sin Stock"}
-              <button onClick={removeStockFilter}>
+          
+          {/* Chip de años */}
+          {isYearFilterActive() && (
+            <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm flex items-center gap-1">
+              {filters.yearRange.min} - {filters.yearRange.max}
+              <button onClick={removeYearFilter}>
                 <X size={12} />
               </button>
             </span>
@@ -186,6 +218,7 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
           {[
             { key: "name" as const, label: "Nombre", defaultOrder: "asc" },
             { key: "brand" as const, label: "Marca", defaultOrder: "asc" },
+            { key: "year" as const, label: "Año", defaultOrder: "desc" },
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -206,7 +239,10 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
                     }`}
                   />
                   <span className="text-xs">
-                    {sortOrder === "asc" ? "A-Z" : "Z-A"}
+                    {key === "year" 
+                      ? (sortOrder === "asc" ? "Antiguo" : "Reciente")
+                      : (sortOrder === "asc" ? "A-Z" : "Z-A")
+                    }
                   </span>
                 </div>
               )}

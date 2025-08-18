@@ -4,7 +4,7 @@ export interface FilterState {
   priceRange: { min: number; max: number }
   selectedBrands: string[]
   yearRange: { min: number; max: number }
-  stockFilter: "all" | "inStock" | "outOfStock"
+  // ✅ ELIMINADO: stockFilter ya no es necesario
 }
 
 // Parámetros que se envían al API (basado en tu endpoint de Swagger)

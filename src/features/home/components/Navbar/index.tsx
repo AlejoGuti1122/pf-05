@@ -6,7 +6,6 @@ import {
   Menu,
   ShoppingCart,
   User,
-  Zap,
   Star,
   LogOut,
   UserCircle,
@@ -288,55 +287,6 @@ const Navbar = () => {
           className="hidden md:flex space-x-6 items-center"
           variants={containerVariants}
         >
-          {/* Botón CREAR PRODUCTO épico */}
-          <motion.div
-            variants={itemVariants}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Link
-              href="/form"
-              className="relative group"
-            >
-              <motion.div
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white font-bold border-2 border-red-500 hover:border-red-400 transition-all duration-300 shadow-lg"
-                whileHover={{
-                  boxShadow: "0 0 25px rgba(220,38,38,0.6)",
-                  background: "linear-gradient(90deg, #dc2626, #b91c1c)",
-                }}
-                animate={{
-                  boxShadow: [
-                    "0 0 15px rgba(220,38,38,0.4)",
-                    "0 0 25px rgba(220,38,38,0.6)",
-                    "0 0 15px rgba(220,38,38,0.4)",
-                  ],
-                }}
-                transition={{ duration: 2.5, repeat: Infinity }}
-              >
-                <motion.span
-                  className="flex items-center gap-2"
-                  whileHover={{ x: 2 }}
-                >
-                  <Zap className="w-4 h-4" />
-                  Crear Repuesto
-                </motion.span>
-
-                {/* Efecto de brillo */}
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-xl"
-                  animate={{
-                    x: ["-100%", "100%"],
-                  }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                    repeatDelay: 2,
-                  }}
-                />
-              </motion.div>
-            </Link>
-          </motion.div>
-
           {/* ✅ Carrito súper animado con contador dinámico */}
           <motion.div
             variants={itemVariants}
@@ -381,14 +331,14 @@ const Navbar = () => {
                   }}
                   transition={{ duration: 2, repeat: Infinity }}
                   whileHover={{ scale: 1.3 }}
-                  key={`badge-${itemCount}-${Date.now()}`} // ✅ CAMBIAR: Key más específica
+                  key={`badge-${itemCount}-${Date.now()}`}
                 >
                   <motion.span
                     className="text-xs font-bold text-white"
-                    key={`number-${itemCount}-${Date.now()}`} // ✅ AGREGAR: Key para el número
-                    initial={{ scale: 1.5, opacity: 0 }} // ✅ AGREGAR: Animación de entrada
-                    animate={{ scale: 1, opacity: 1 }} // ✅ AGREGAR: Animación de entrada
-                    transition={{ duration: 0.3 }} // ✅ AGREGAR: Animación de entrada
+                    key={`number-${itemCount}-${Date.now()}`}
+                    initial={{ scale: 1.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.3 }}
                   >
                     {itemCount > 99 ? "99+" : itemCount}
                   </motion.span>
@@ -494,8 +444,6 @@ const Navbar = () => {
                         className="w-full px-4 py-3 text-left flex items-center gap-3 text-gray-700 hover:text-gray-900 transition-colors"
                         onClick={() => {
                           setShowUserMenu(false)
-                          // Aquí puedes navegar a la página de perfil
-                          // router.push('/perfil')
                         }}
                       >
                         <UserCircle className="w-4 h-4 text-blue-500" />
@@ -601,7 +549,7 @@ const Navbar = () => {
                 transition={{ duration: 0.5 }}
               >
                 <SheetTitle className="text-white text-2xl font-bold bg-gradient-to-r from-white to-red-200 bg-clip-text">
-                  AutoParts
+                  RepuStore
                 </SheetTitle>
               </motion.div>
             </SheetHeader>
@@ -612,32 +560,6 @@ const Navbar = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, staggerChildren: 0.1 }}
             >
-              {/* Crear Producto destacado en mobile */}
-              <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.05 }}
-                whileHover={{ x: 10 }}
-              >
-                <Link
-                  href="/form"
-                  className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl bg-gradient-to-r from-red-600/30 to-red-700/20 border border-red-500/30 hover:from-red-600/50 hover:to-red-700/40 transition-all duration-300 mb-2"
-                  onClick={() => setOpen(false)}
-                >
-                  <motion.span
-                    className="text-2xl"
-                    whileHover={{ scale: 1.3, rotate: 15 }}
-                  >
-                    ⚡
-                  </motion.span>
-                  <span className="text-lg font-bold">Crear Repuesto</span>
-                  <motion.div
-                    className="ml-auto w-2 h-2 bg-red-500 rounded-full opacity-0 group-hover:opacity-100"
-                    whileHover={{ scale: 1.5 }}
-                  />
-                </Link>
-              </motion.div>
-
               {/* ✅ Carrito en mobile con contador */}
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
@@ -646,7 +568,7 @@ const Navbar = () => {
                 whileHover={{ x: 10 }}
               >
                 <Link
-                  href="/carrito"
+                  href="/cart"
                   className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl hover:bg-gradient-to-r hover:from-red-600/20 hover:to-red-700/10 transition-all duration-300"
                   onClick={() => setOpen(false)}
                 >
@@ -678,7 +600,7 @@ const Navbar = () => {
               </motion.div>
 
               {/* Opciones de usuario en mobile */}
-              {user && (
+              {user ? (
                 <>
                   {/* Perfil en mobile */}
                   <motion.div
@@ -688,11 +610,9 @@ const Navbar = () => {
                     whileHover={{ x: 10 }}
                     className="mt-4 pt-4 border-t border-red-500/20"
                   >
-                    <button
-                      onClick={() => {
-                        setOpen(false)
-                        // Navegar a perfil
-                      }}
+                    <Link
+                      href="/profile"
+                      onClick={() => setOpen(false)}
                       className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl hover:bg-gradient-to-r hover:from-blue-600/20 hover:to-blue-700/10 transition-all duration-300 w-full text-left"
                     >
                       <motion.span
@@ -706,7 +626,7 @@ const Navbar = () => {
                         className="ml-auto w-2 h-2 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100"
                         whileHover={{ scale: 1.5 }}
                       />
-                    </button>
+                    </Link>
                   </motion.div>
 
                   {/* Logout en mobile */}
@@ -737,6 +657,33 @@ const Navbar = () => {
                     </button>
                   </motion.div>
                 </>
+              ) : (
+                /* Login en mobile si no hay usuario */
+                <motion.div
+                  initial={{ opacity: 0, x: -50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  whileHover={{ x: 10 }}
+                  className="mt-4 pt-4 border-t border-red-500/20"
+                >
+                  <Link
+                    href="/"
+                    onClick={() => setOpen(false)}
+                    className="group flex items-center space-x-4 text-white font-medium p-4 rounded-xl hover:bg-gradient-to-r hover:from-blue-600/20 hover:to-blue-700/10 transition-all duration-300 w-full text-left"
+                  >
+                    <motion.span
+                      className="text-2xl"
+                      whileHover={{ scale: 1.3, rotate: 15 }}
+                    >
+                      🔐
+                    </motion.span>
+                    <span className="text-lg">Iniciar Sesión</span>
+                    <motion.div
+                      className="ml-auto w-2 h-2 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100"
+                      whileHover={{ scale: 1.5 }}
+                    />
+                  </Link>
+                </motion.div>
               )}
             </motion.div>
 

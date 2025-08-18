@@ -15,6 +15,8 @@ import React, {
 import { toast } from "sonner"
 import { AddItemToCartRequest, Cart } from "../types/cart"
 import { cartService } from "../services/services-cart"
+// ✅ AGREGAR: Import del hook de auth
+import useAuth from "@/features/login/hooks/useAuth" // Ajusta la ruta según tu estructura
 
 // Tipos para el contexto
 interface CartContextType {
@@ -53,19 +55,64 @@ export function CartProvider({ children }: CartProviderProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Función helper para manejar errores
-  const handleError = useCallback((error: any, defaultMessage: string) => {
-    const message = error?.message || defaultMessage
-    setError(message)
-    toast.error(message)
+  // ✅ AGREGAR: Hook de autenticación
+  const { user, loading: authLoading } = useAuth()
+
+  // ✅ NUEVA: Función para verificar si el error es de autenticación
+  const isAuthError = useCallback((error: any): boolean => {
+    const message = error?.message?.toLowerCase() || ""
+    const status = error?.status || error?.response?.status
+
+    return (
+      status === 401 ||
+      status === 403 ||
+      message.includes("forbidden") ||
+      message.includes("unauthorized") ||
+      message.includes("token") ||
+      message.includes("authentication")
+    )
   }, [])
 
-  // Cargar carrito inicial
+  // ✅ MEJORADA: Función helper para manejar errores
+  const handleError = useCallback(
+    (error: any, defaultMessage: string, silent = false) => {
+      console.error("❌ [CONTEXT] Error:", error)
+
+      // ✅ NUEVO: Si es error de auth, limpiar carrito silenciosamente
+      if (isAuthError(error)) {
+        console.log(
+          "🔐 Error de autenticación detectado - limpiando carrito local"
+        )
+        setCart(null)
+        setError(null) // No mostrar error de auth al usuario
+        return
+      }
+
+      // Para otros errores, mostrar normalmente
+      const message = error?.message || defaultMessage
+      setError(message)
+
+      if (!silent) {
+        toast.error(message)
+      }
+    },
+    [isAuthError]
+  )
+
+  // ✅ MEJORADA: Cargar carrito inicial con verificación de auth
   const fetchCart = useCallback(async () => {
+    // ✅ NUEVO: No hacer fetch si no hay usuario autenticado
+    if (!user) {
+      console.log("👻 No hay usuario autenticado - limpiando carrito local")
+      setCart(null)
+      setError(null)
+      return
+    }
+
     try {
       setIsLoading(true)
       setError(null)
-      console.log("🔄 [CONTEXT] Cargando carrito...") // Debug
+      console.log("🔄 [CONTEXT] Cargando carrito para usuario:", user.email) // Debug
 
       const response = await cartService.getCurrentCart()
       console.log("📦 [CONTEXT] Respuesta cruda del servicio:", response) // Debug
@@ -87,16 +134,22 @@ export function CartProvider({ children }: CartProviderProps) {
       setCart(cartData)
       console.log("✅ [CONTEXT] Estado del carrito actualizado") // Debug
     } catch (error) {
-      console.error("❌ [CONTEXT] Error cargando carrito:", error) // Debug
+      console.log("❌ [CONTEXT] Error cargando carrito:", error) // Debug
       handleError(error, "Error al cargar el carrito")
     } finally {
       setIsLoading(false)
     }
-  }, [handleError])
+  }, [user, handleError]) // ✅ AGREGAR: user como dependencia
 
-  // Agregar item al carrito
+  // ✅ MEJORADA: Agregar item al carrito con verificación de auth
   const addItem = useCallback(
     async (data: AddItemToCartRequest) => {
+      // ✅ NUEVO: Verificar autenticación antes de agregar
+      if (!user) {
+        toast.error("Debes iniciar sesión para agregar productos al carrito")
+        return
+      }
+
       try {
         setIsLoading(true)
         setError(null)
@@ -120,12 +173,17 @@ export function CartProvider({ children }: CartProviderProps) {
         setIsLoading(false)
       }
     },
-    [fetchCart, handleError]
+    [user, fetchCart, handleError] // ✅ AGREGAR: user como dependencia
   )
 
-  // Actualizar cantidad de un item
+  // ✅ MEJORADA: Actualizar cantidad con verificación de auth
   const updateQuantity = useCallback(
     async (itemId: string, quantity: number) => {
+      if (!user) {
+        toast.error("Debes iniciar sesión para modificar el carrito")
+        return
+      }
+
       try {
         setIsLoading(true)
         setError(null)
@@ -140,12 +198,17 @@ export function CartProvider({ children }: CartProviderProps) {
         setIsLoading(false)
       }
     },
-    [fetchCart, handleError]
+    [user, fetchCart, handleError]
   )
 
-  // Eliminar item del carrito
+  // ✅ MEJORADA: Eliminar item con verificación de auth
   const removeItem = useCallback(
     async (itemId: string) => {
+      if (!user) {
+        toast.error("Debes iniciar sesión para modificar el carrito")
+        return
+      }
+
       try {
         setIsLoading(true)
         setError(null)
@@ -160,11 +223,17 @@ export function CartProvider({ children }: CartProviderProps) {
         setIsLoading(false)
       }
     },
-    [fetchCart, handleError]
+    [user, fetchCart, handleError]
   )
 
-  // Vaciar carrito completo
+  // ✅ MEJORADA: Vaciar carrito con verificación de auth
   const clearCart = useCallback(async () => {
+    if (!user) {
+      // Si no hay usuario, solo limpiar local
+      setCart(null)
+      return
+    }
+
     try {
       setIsLoading(true)
       setError(null)
@@ -178,10 +247,12 @@ export function CartProvider({ children }: CartProviderProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [handleError])
+  }, [user, handleError])
 
-  // Refrescar/revalidar carrito
+  // ✅ MEJORADA: Refrescar carrito con verificación de auth
   const refreshCart = useCallback(async () => {
+    if (!user) return
+
     try {
       setIsLoading(true)
       setError(null)
@@ -195,10 +266,12 @@ export function CartProvider({ children }: CartProviderProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [handleError])
+  }, [user, handleError])
 
-  // Fusionar carritos
+  // ✅ MEJORADA: Fusionar carritos con verificación de auth
   const mergeCarts = useCallback(async () => {
+    if (!user) return
+
     try {
       setIsLoading(true)
       setError(null)
@@ -212,10 +285,15 @@ export function CartProvider({ children }: CartProviderProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [handleError])
+  }, [user, handleError])
 
-  // Validar carrito para checkout
+  // ✅ MEJORADA: Validar carrito con verificación de auth
   const validateForCheckout = useCallback(async () => {
+    if (!user) {
+      toast.error("Debes iniciar sesión para continuar")
+      return { success: false, valid: false }
+    }
+
     try {
       setIsLoading(true)
       setError(null)
@@ -233,14 +311,26 @@ export function CartProvider({ children }: CartProviderProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [handleError])
+  }, [user, handleError])
 
-  // Cargar carrito al montar el componente
+  // ✅ NUEVO: Effect para manejar cambios de autenticación
   useEffect(() => {
-    fetchCart()
-  }, [fetchCart])
+    if (authLoading) {
+      console.log("⏳ Auth loading...")
+      return // Esperar a que termine la carga de auth
+    }
 
-  // Computed values con useMemo
+    if (user) {
+      console.log("👤 Usuario autenticado - cargando carrito")
+      fetchCart()
+    } else {
+      console.log("👻 Usuario no autenticado - limpiando carrito")
+      setCart(null)
+      setError(null)
+    }
+  }, [user, authLoading, fetchCart])
+
+  // ✅ MEJORADO: Computed values con useMemo
   const itemCount = useMemo(() => {
     const count = cart?.items?.length || 0
     console.log(

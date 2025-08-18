@@ -56,11 +56,6 @@ const PageHome = () => {
       try {
         const parsedData = JSON.parse(decodeURIComponent(data))
         console.log("🎯 Datos de Google recibidos:", parsedData)
-        console.log(
-          "🔑 Access Token:",
-          parsedData.access_Token || parsedData.accessToken || parsedData.token
-        )
-        console.log("👤 Usuario:", parsedData.user)
 
         // Verificar que los datos sean válidos
         const accessToken =
@@ -68,14 +63,13 @@ const PageHome = () => {
         if (accessToken && parsedData.user) {
           // Guardar token en localStorage como tu sistema actual
           localStorage.setItem("token", accessToken)
-
-          // Opcional: guardar datos del usuario también
           localStorage.setItem("user", JSON.stringify(parsedData.user))
 
           console.log("💾 Token y usuario de Google guardados exitosamente")
-          console.log("💾 LOCALSTORAGE DESPUÉS:")
-          console.log("  - token:", localStorage.getItem("token"))
-          console.log("  - user:", localStorage.getItem("user"))
+
+          // ✅ NUEVO: Solo disparar evento - SIN reload
+          console.log("📡 Notificando a useAuth sobre el cambio...")
+          window.dispatchEvent(new CustomEvent("auth-updated"))
 
           // Limpiar URL de parámetros
           window.history.replaceState(
@@ -84,24 +78,22 @@ const PageHome = () => {
             window.location.pathname
           )
 
-          // Opcional: recargar para que useAuth detecte cambios
-          console.log("🔄 Recargando página para actualizar useAuth...")
-          setTimeout(() => window.location.reload(), 1000)
+          // ✅ ELIMINADO: No más reload automático
+          // setTimeout(() => window.location.reload(), 500)
+
+          console.log(
+            "✅ Login con Google completado - useAuth debería detectar el cambio automáticamente"
+          )
         } else {
           console.error("❌ Datos incompletos de Google:", parsedData)
-          console.error("❌ accessToken presente:", !!accessToken)
-          console.error("❌ user presente:", !!parsedData.user)
         }
       } catch (error) {
         console.error("❌ Error parseando datos de Google:", error)
-        console.error("❌ Data raw:", data)
-        console.error("❌ Data decoded:", decodeURIComponent(data))
       }
     }
     // 🔄 FORMATO ANTERIOR: token directo (mantener por compatibilidad)
     else if (token) {
       console.log("✅ DETECTADO PARÁMETRO TOKEN (formato anterior)")
-      console.log("🎯 Token valor:", token)
 
       if (
         token === "[object Object]" ||
@@ -109,7 +101,6 @@ const PageHome = () => {
         token.includes("Object]")
       ) {
         console.error("❌ TOKEN MALFORMADO DETECTADO:", token)
-        console.error("❌ El backend está enviando un objeto como string")
         window.history.replaceState(
           {},
           document.title,
@@ -123,10 +114,19 @@ const PageHome = () => {
         console.log(
           "💾 Token de Google guardado exitosamente (formato anterior)"
         )
+
+        // ✅ NUEVO: Solo disparar evento - SIN reload
+        console.log("📡 Notificando a useAuth sobre el cambio...")
+        window.dispatchEvent(new CustomEvent("auth-updated"))
+
         window.history.replaceState(
           {},
           document.title,
           window.location.pathname
+        )
+
+        console.log(
+          "✅ Login con Google completado - useAuth debería detectar el cambio automáticamente"
         )
       } catch (error) {
         console.error("❌ Error guardando token de Google:", error)
@@ -148,12 +148,11 @@ const PageHome = () => {
 
   const [searchResults, setSearchResults] = useState<any[]>([])
 
-  // ✅ FILTROS SIMPLIFICADOS - SOLO MARCAS Y STOCK
+  // ✅ FILTROS SIMPLIFICADOS - Solo marcas y años
   const [filters, setFilters] = useState<FilterState>({
-    priceRange: { min: 0, max: 0 }, // Ya no se usa pero mantenemos por compatibilidad
+    priceRange: { min: 0, max: 0 }, // Mantenemos por compatibilidad
     selectedBrands: [],
-    yearRange: { min: 0, max: 0 }, // Ya no se usa pero mantenemos por compatibilidad
-    stockFilter: "all",
+    yearRange: { min: 1990, max: new Date().getFullYear() }, // ✅ Filtro de año activo
   })
 
   const [sortBy, setSortBy] = useState<"name" | "price" | "brand" | "year">(
@@ -174,7 +173,7 @@ const PageHome = () => {
     setSearchResults(results)
   }
 
-  // ✅ LÓGICA DE FILTRADO SIMPLIFICADA - SOLO MARCAS Y STOCK
+  // ✅ LÓGICA DE FILTRADO SIMPLIFICADA - Solo marcas y años
   const filteredSearchResults = useMemo(() => {
     if (!searchResults.length) return []
 
@@ -182,7 +181,7 @@ const PageHome = () => {
 
     return searchResults
       .filter((product: any) => {
-        // ✅ FILTRO DE MARCA - ÚNICO FILTRO PRINCIPAL
+        // ✅ FILTRO DE MARCA
         if (filters.selectedBrands.length > 0) {
           if (!filters.selectedBrands.includes(product.brand)) {
             console.log(`❌ ${product.name} filtrado por marca`)
@@ -190,15 +189,19 @@ const PageHome = () => {
           }
         }
 
-        // ✅ FILTRO DE STOCK - ÚNICO FILTRO SECUNDARIO
-        if (filters.stockFilter !== "all") {
-          const hasStock = product.stock > 0
-          if (filters.stockFilter === "inStock" && !hasStock) {
-            console.log(`❌ ${product.name} filtrado por stock (sin stock)`)
-            return false
-          }
-          if (filters.stockFilter === "outOfStock" && hasStock) {
-            console.log(`❌ ${product.name} filtrado por stock (con stock)`)
+        // ✅ FILTRO DE AÑO
+        if (
+          filters.yearRange.min > 1990 ||
+          filters.yearRange.max < new Date().getFullYear()
+        ) {
+          const productYear = parseInt(product.year)
+          if (
+            productYear < filters.yearRange.min ||
+            productYear > filters.yearRange.max
+          ) {
+            console.log(
+              `❌ ${product.name} filtrado por año (${productYear} fuera del rango ${filters.yearRange.min}-${filters.yearRange.max})`
+            )
             return false
           }
         }
@@ -236,15 +239,19 @@ const PageHome = () => {
       })
   }, [searchResults, filters, sortBy, sortOrder])
 
-  // ✅ CONTAR FILTROS ACTIVOS - SOLO MARCAS Y STOCK
+  // ✅ CONTAR FILTROS ACTIVOS - Solo marcas y años
   const activeFiltersCount = useMemo(() => {
     let count = 0
 
     // Marcas activas si hay alguna seleccionada
     if (filters.selectedBrands.length > 0) count++
 
-    // Stock activo si no es "all"
-    if (filters.stockFilter !== "all") count++
+    // Año activo si no son los valores por defecto
+    if (
+      filters.yearRange.min > 1990 ||
+      filters.yearRange.max < new Date().getFullYear()
+    )
+      count++
 
     return count
   }, [filters])
@@ -274,14 +281,13 @@ const PageHome = () => {
     setShowFilters((prev: boolean) => !prev)
   }
 
-  // ✅ LIMPIAR FILTROS - SOLO MARCAS Y STOCK
+  // ✅ LIMPIAR FILTROS - Solo marcas y años
   const handleClearFilters = () => {
     console.log("🧹 Limpiando filtros")
     setFilters({
       priceRange: { min: 0, max: 0 },
       selectedBrands: [],
-      yearRange: { min: 0, max: 0 },
-      stockFilter: "all",
+      yearRange: { min: 1990, max: new Date().getFullYear() }, // ✅ Resetear a valores por defecto
     })
   }
 
@@ -342,31 +348,21 @@ const PageHome = () => {
                 )}
               </h2>
 
-              {/* ✅ DEBUG INFO SIMPLIFICADO - TEMPORAL */}
+              {/* ✅ DEBUG INFO SIMPLIFICADO - Solo marcas y años */}
               {activeFiltersCount > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4 text-sm">
                   <strong>Filtros activos:</strong>
-                  {filters.selectedBrands.length > 0 ? (
+                  {filters.selectedBrands.length > 0 && (
                     <span className="ml-2 text-blue-700">
                       Marcas: {filters.selectedBrands.join(", ")}
                     </span>
-                  ) : null}
-                  {filters.stockFilter !== "all" ? (
+                  )}
+                  {(filters.yearRange.min > 1990 ||
+                    filters.yearRange.max < new Date().getFullYear()) && (
                     <span className="ml-2 text-blue-700">
-                      Stock:{" "}
-                      {filters.stockFilter === "inStock"
-                        ? "En Stock"
-                        : "Sin Stock"}
+                      Años: {filters.yearRange.min} - {filters.yearRange.max}
                     </span>
-                  ) : null}
-                  {filters.stockFilter !== "all" ? (
-                    <span className="ml-2 text-blue-700">
-                      Stock:{" "}
-                      {filters.stockFilter === "inStock"
-                        ? "En Stock"
-                        : "Sin Stock"}
-                    </span>
-                  ) : null}
+                  )}
                 </div>
               )}
 

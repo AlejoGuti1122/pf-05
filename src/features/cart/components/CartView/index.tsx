@@ -51,11 +51,15 @@ const ShoppingCart = () => {
   // ✅ Loading combinado
   const isLoading = cartLoading || paymentLoading
 
-  // ✅ ACTUALIZADO: Calcular totales usando la nueva estructura del backend
-  const subtotal = Number(cart?.summary?.subtotal || cart?.summary?.total || 0)
-  const shipping = subtotal > 500 ? 0 : 29.99
-  const tax = subtotal * 0.1
-  const finalTotal = subtotal + shipping + tax
+  // ✅ SIMPLIFICADO: Solo calcular el total final
+  const finalTotal = Number(
+    cart?.summary?.total || cart?.summary?.subtotal || 0
+  )
+
+  // ✅ AGREGAR ESTA LÍNEA:
+  const hasInvalidItems = Boolean(
+    cart?.summary?.invalidItemsCount && cart.summary.invalidItemsCount > 0
+  )
 
   // ✅ ACTUALIZADO: handleCheckout - NO limpiar carrito hasta después del pago
   const handleCheckout = async () => {
@@ -324,9 +328,9 @@ const ShoppingCart = () => {
                               </div>
                             )}
 
-                            {/* Quantity Controls */}
+                            {/* ✅ CORREGIDO: Quantity Controls con iconos alineados */}
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3 flex-1">
                                 <span className="text-sm font-medium text-gray-700">
                                   Cantidad:
                                 </span>
@@ -372,7 +376,7 @@ const ShoppingCart = () => {
                               <button
                                 onClick={() => handleRemoveItem(item.id)}
                                 disabled={isLoading}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors disabled:opacity-50"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0 ml-4"
                               >
                                 <Trash2 className="w-5 h-5" />
                               </button>
@@ -417,42 +421,28 @@ const ShoppingCart = () => {
                   </h2>
                 </div>
 
-                <div className="p-6 space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="font-semibold text-black">
-                      ${subtotal.toFixed(2)}
-                    </span>
-                  </div>
+                <div className="p-6">
+                  {/* ✅ NUEVO: Mostrar advertencias si hay items inválidos */}
+                  {hasInvalidItems && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                      <p className="text-sm text-yellow-700">
+                        ⚠️ {cart?.summary?.invalidItemsCount} producto(s) tienen
+                        problemas de stock o precio
+                      </p>
+                    </div>
+                  )}
 
-                  {/* ✅ NUEVO: Mostrar descuentos si existen */}
-                  {cart?.summary?.discount && cart.summary.discount > 0 && (
-                    <div className="flex justify-between">
+                  {/* ✅ LIMPIADO: Solo mostrar descuentos si existen */}
+                  {cart?.summary?.discount && cart.summary.discount > 0 ? (
+                    <div className="flex justify-between mb-4">
                       <span className="text-gray-600">Descuento</span>
                       <span className="font-semibold text-green-600">
                         -${cart.summary.discount.toFixed(2)}
                       </span>
                     </div>
-                  )}
+                  ) : null}
 
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Envío</span>
-                    <span className="font-semibold text-black">
-                      {shipping === 0 ? (
-                        <span className="text-green-600">¡Gratis!</span>
-                      ) : (
-                        `$${shipping.toFixed(2)}`
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Impuestos</span>
-                    <span className="font-semibold text-black">
-                      ${(cart?.summary?.tax || tax).toFixed(2)}
-                    </span>
-                  </div>
-
+                  {/* ✅ LIMPIADO: Solo el total final */}
                   <div className="border-t border-gray-200 pt-4">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold text-black">
@@ -463,40 +453,13 @@ const ShoppingCart = () => {
                       </span>
                     </div>
                   </div>
-
-                  {/* ✅ NUEVO: Mostrar advertencias si hay items inválidos */}
-                  {cart?.summary?.invalidItemsCount &&
-                    cart.summary.invalidItemsCount > 0 && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                        <p className="text-sm text-yellow-700">
-                          ⚠️ {cart.summary.invalidItemsCount} producto(s) tienen
-                          problemas de stock o precio
-                        </p>
-                      </div>
-                    )}
-
-                  {shipping > 0 && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <p className="text-sm text-red-700">
-                        💡 Agrega ${(500 - subtotal).toFixed(2)} más para envío
-                        gratuito
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 <div className="p-6 pt-0 space-y-3">
                   {/* ✅ ACTUALIZADO: Botón de checkout para MercadoPago */}
                   <button
                     onClick={handleCheckout}
-                    disabled={
-                      isLoading ||
-                      isEmpty ||
-                      Boolean(
-                        cart?.summary?.invalidItemsCount &&
-                          cart.summary.invalidItemsCount > 0
-                      )
-                    }
+                    disabled={isLoading || isEmpty || hasInvalidItems}
                     className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 group disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
