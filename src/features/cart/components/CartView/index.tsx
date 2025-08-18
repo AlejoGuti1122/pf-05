@@ -14,7 +14,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useCartContext } from "../../context/index"
-import { useOrders } from "../../hooks/useOrders"
+import { usePaymentPreference } from "../../hooks/usePayment"
 
 const ShoppingCart = () => {
   const router = useRouter()
@@ -39,11 +39,17 @@ const ShoppingCart = () => {
     validateForCheckout,
   } = useCartContext()
 
-  // ✅ Hook de órdenes
-  const { createOrder, isLoading: orderLoading } = useOrders()
+  // ✅ NUEVO: Hook de MercadoPago en lugar de órdenes
+  const {
+    createPaymentPreference,
+    redirectToMercadoPago,
+    isCreating: paymentLoading,
+    error: paymentError,
+    reset: resetPayment,
+  } = usePaymentPreference()
 
   // ✅ Loading combinado
-  const isLoading = cartLoading || orderLoading
+  const isLoading = cartLoading || paymentLoading
 
   // ✅ ACTUALIZADO: Calcular totales usando la nueva estructura del backend
   const subtotal = Number(cart?.summary?.subtotal || cart?.summary?.total || 0)
@@ -51,20 +57,21 @@ const ShoppingCart = () => {
   const tax = subtotal * 0.1
   const finalTotal = subtotal + shipping + tax
 
-  // ✅ ACTUALIZADO: handleCheckout con formato correcto de API
+  // ✅ ACTUALIZADO: handleCheckout - NO limpiar carrito hasta después del pago
   const handleCheckout = async () => {
     try {
+      console.log("🔍 Iniciando proceso de checkout...")
+
+      // 1️⃣ PASO 1: Validar carrito
       console.log("🔍 Validando carrito para checkout...")
       const validation = await validateForCheckout()
 
-      console.log("📦 Respuesta de validación:", validation) // Debug
-
       const isValidCart =
         validation &&
-        validation.status === "pending" && // ✅ Cambio aquí
+        validation.status === "pending" &&
         validation.items &&
         validation.items.length > 0 &&
-        (validation.subtotal > 0 || validation.summary?.total > 0) // ✅ Y aquí
+        (validation.subtotal > 0 || validation.summary?.total > 0)
 
       if (!isValidCart) {
         toast.error("El carrito no es válido para proceder al checkout")
@@ -72,30 +79,90 @@ const ShoppingCart = () => {
         return
       }
 
-      console.log("✅ Carrito validado correctamente")
+      console.log("✅ Carrito validado correctamente:", validation)
 
-      // ✅ Crear orden con los datos validados
-      const orderData = {
-        userId: JSON.parse(localStorage.getItem("user") || "{}").id,
-        products: validation.items.map((item: any) => ({
-          id: item.productId || item.id,
-        })),
+      // 2️⃣ PASO 2: Obtener cartId del carrito actual
+      // ✅ CAMBIO: Usar cartId en lugar de orderId
+      const cartId = cart?.id || validation.cartId
+
+      if (!cartId) {
+        toast.error("No se pudo obtener el ID del carrito")
+        console.error("❌ No se encontró cartId en:", { cart, validation })
+        return
       }
 
-      console.log("🛒 Creando orden con datos:", orderData)
+      console.log("✅ Usando cartId para el pago:", cartId)
 
-      const newOrder = await createOrder(orderData)
+      // 3️⃣ PASO 3: Crear preferencia de pago con cartId
+      console.log("💳 Creando preferencia de pago para carrito:", cartId)
 
-      console.log("✅ Orden creada exitosamente:", newOrder.id)
+      try {
+        // ✅ CAMBIO: Pasar cartId en lugar de orderId
+        const paymentPreference = await createPaymentPreference(cartId)
 
-      await clearCart()
-      toast.success(`¡Orden #${newOrder.id} creada exitosamente!`)
+        console.log("✅ Respuesta de MercadoPago:", paymentPreference)
+
+        // 4️⃣ PASO 4: Verificar respuesta y redirigir
+        // ✅ CORREGIDO: Obtener initPoint con validación
+        const initPoint =
+          paymentPreference.initPoint || paymentPreference.init_point
+
+        if (paymentPreference.ok && initPoint) {
+          console.log("🔀 Preparando redirección a MercadoPago...")
+          console.log("🔗 Init Point:", initPoint)
+
+          // ✅ CAMBIO: NO limpiar carrito aquí
+          // El carrito se limpiará en el webhook de success de MercadoPago
+          console.log(
+            "🧹 Carrito NO limpiado - se limpiará después del pago exitoso"
+          )
+
+          // Mostrar mensaje de éxito
+          toast.success("Redirigiendo a MercadoPago...")
+
+          // Redirigir a MercadoPago (ahora initPoint es garantizado como string)
+          redirectToMercadoPago(initPoint)
+        } else {
+          // Error en la respuesta de MercadoPago
+          let errorMsg = "Error al crear preferencia de pago"
+
+          if (!initPoint) {
+            errorMsg = "No se recibió URL de redirección de MercadoPago"
+          } else if (!paymentPreference.ok) {
+            errorMsg =
+              paymentPreference.message ||
+              "Error en la respuesta de MercadoPago"
+          }
+
+          console.error("❌ Error en verificación:", {
+            ok: paymentPreference.ok,
+            initPoint,
+            response: paymentPreference,
+          })
+          throw new Error(errorMsg)
+        }
+      } catch (paymentError) {
+        console.error("❌ Error al crear preferencia de pago:", paymentError)
+        const errorMessage = getErrorMessage(paymentError)
+        toast.error(`Error de pago: ${errorMessage}`)
+        throw paymentError
+      }
     } catch (error) {
-      console.error("❌ Error en checkout:", error)
+      console.error("❌ Error general en checkout:", error)
       const errorMessage = getErrorMessage(error)
       toast.error(`Error en checkout: ${errorMessage}`)
+
+      // Reset del estado de pago en caso de error
+      resetPayment()
     }
   }
+
+  // ✅ Mostrar errores de pago si existen
+  React.useEffect(() => {
+    if (paymentError) {
+      toast.error(`Error de pago: ${paymentError}`)
+    }
+  }, [paymentError])
 
   const handleQuantityChange = (itemId: string, newQuantity: number) => {
     updateQuantity(itemId, newQuantity)
@@ -141,7 +208,7 @@ const ShoppingCart = () => {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-black mb-2 flex items-center justify-center gap-3">
+          <h1 className="text-3xl md:text-4xl font-bold text-black mb-2 flex items-center justify-center gap-3 mt-16">
             <ShoppingBag className="w-8 h-8 text-red-600" />
             Carrito de Compras
           </h1>
@@ -419,7 +486,7 @@ const ShoppingCart = () => {
                 </div>
 
                 <div className="p-6 pt-0 space-y-3">
-                  {/* ✅ Botón de checkout actualizado */}
+                  {/* ✅ ACTUALIZADO: Botón de checkout para MercadoPago */}
                   <button
                     onClick={handleCheckout}
                     disabled={
@@ -435,11 +502,11 @@ const ShoppingCart = () => {
                     {isLoading ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        {orderLoading ? "Creando orden..." : "Procesando..."}
+                        {paymentLoading ? "Procesando pago..." : "Validando..."}
                       </>
                     ) : (
                       <>
-                        Proceder al Checkout
+                        Pagar con MercadoPago
                         <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                       </>
                     )}
@@ -456,13 +523,13 @@ const ShoppingCart = () => {
                 <div className="p-6 pt-0">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="font-semibold text-black mb-2">
-                      🔒 Compra Segura
+                      🔒 Pago Seguro con MercadoPago
                     </h3>
                     <ul className="text-sm text-gray-600 space-y-1">
-                      <li>✓ Pago 100% seguro</li>
-                      <li>✓ Envío con seguimiento</li>
-                      <li>✓ Garantía de devolución</li>
-                      <li>✓ Checkout rápido y automático</li>
+                      <li>✓ Pago 100% seguro con MercadoPago</li>
+                      <li>✓ Múltiples métodos de pago</li>
+                      <li>✓ Protección al comprador</li>
+                      <li>✓ Procesamiento inmediato</li>
                     </ul>
                   </div>
                 </div>

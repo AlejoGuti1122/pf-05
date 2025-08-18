@@ -253,10 +253,10 @@ export function CartProvider({ children }: CartProviderProps) {
   }, [cart?.items])
 
   const total = useMemo(() => {
-    const totalValue = cart?.total || cart?.subtotal || 0
+    const totalValue = cart?.summary?.total || cart?.summary?.subtotal || 0
     console.log("🎯 [CONTEXT] Calculando total:", totalValue) // Debug
     return totalValue
-  }, [cart?.total, cart?.subtotal])
+  }, [cart?.summary?.total, cart?.summary?.subtotal])
 
   const isEmpty = useMemo(() => {
     const empty = itemCount === 0
