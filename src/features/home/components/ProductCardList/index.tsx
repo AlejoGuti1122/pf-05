@@ -33,8 +33,6 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
 }) => {
   // Estados principales
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
-  // ❌ Quitar esta línea:
-  // const [cart, setCart] = useState<Product[]>([])
 
   // ✅ Agregar el hook del carrito:
   const { addItem, isLoading: cartLoading, itemCount } = useCartContext()
@@ -42,12 +40,11 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [showProductDetail, setShowProductDetail] = useState(false)
 
-  // Filtros por defecto
+  // ✅ FILTROS POR DEFECTO SIMPLIFICADOS - Solo marcas y años
   const defaultFilters: FilterState = {
     priceRange: { min: 0, max: Infinity },
     selectedBrands: [],
-    yearRange: { min: 0, max: new Date().getFullYear() },
-    stockFilter: "inStock",
+    yearRange: { min: 1990, max: new Date().getFullYear() }, // ✅ Valores consistentes
   }
 
   const filters = externalFilters || defaultFilters
@@ -77,9 +74,9 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
       "Filtro de Aceite Bosch",
     ]
 
-    return allProducts.filter(
-      (product) => !productsToHide.includes(product.name)
-    )
+    return allProducts
+      .filter((product) => !productsToHide.includes(product.name))
+      .filter((product) => product.stock > 0)
   }, [allProducts])
 
   // Handlers
@@ -254,7 +251,7 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
                     src={product.imgUrl}
                     alt={product.name}
                     fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-500"
+                    className="object-contain group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement
                       target.src =

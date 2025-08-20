@@ -65,15 +65,6 @@ export const useProductsFiltered = ({
       params.yearMax = filters.yearRange.max
     }
 
-    // ✅ SOLUCIÓN: Filtro de stock más explícito
-    // Solo agregar parámetro inStock cuando NO sea "all"
-    if (filters.stockFilter === "inStock") {
-      params.inStock = true
-    } else if (filters.stockFilter === "outOfStock") {
-      params.inStock = false
-    }
-    // ✅ Cuando es "all", NO agregamos el parámetro inStock
-    // Esto permite que la API devuelva todos los productos
 
     // Filtros de marcas (convertir array a CSV)
     if (filters.selectedBrands.length > 0) {
@@ -81,7 +72,7 @@ export const useProductsFiltered = ({
     }
 
     // ✅ DEBUG: Ver qué parámetros se están enviando
-    console.log("🔍 HOOK - stockFilter:", filters.stockFilter)
+    
     console.log("🔍 HOOK - apiParams:", params)
 
     return params
