@@ -207,7 +207,7 @@ export const useCart = () => {
     fetchCart()
   }, [fetchCart])
 
-  // ✅ MEJORADO: Computed values con useMemo para mejor reactividad
+  // ✅ CORREGIDO: Computed values con useMemo para mejor reactividad
   const itemCount = useMemo(() => {
     const count = cart?.items?.length || 0
     console.log("🎯 Calculando itemCount:", count, "desde items:", cart?.items) // Debug
@@ -215,10 +215,11 @@ export const useCart = () => {
   }, [cart?.items])
 
   const total = useMemo(() => {
-    const totalValue = cart?.total || cart?.subtotal || 0
+    // ✅ CORREGIDO: Acceder al total desde cart.summary según la estructura real
+    const totalValue = cart?.summary?.total || cart?.summary?.subtotal || 0
     console.log("🎯 Calculando total:", totalValue) // Debug
     return totalValue
-  }, [cart?.total, cart?.subtotal])
+  }, [cart?.summary?.total, cart?.summary?.subtotal]) // ✅ CORREGIDO: Dependencias correctas
 
   const isEmpty = useMemo(() => {
     const empty = itemCount === 0
