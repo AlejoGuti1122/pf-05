@@ -383,8 +383,7 @@ const PageHome = () => {
                             className="w-20 h-20 object-cover rounded-lg border"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
-                              target.src =
-                                "https://via.placeholder.com/80x80/e2e8f0/94a3b8?text=Sin+Imagen"
+                              target.src = "/images/no-image-placeholder.png"
                             }}
                           />
                         </div>

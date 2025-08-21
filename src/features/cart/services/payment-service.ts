@@ -6,7 +6,8 @@ import {
   PaymentResponse,
 } from "../types/payments"
 
-const API_BASE_URL = "http://localhost:3001"
+// ✅ USAR VARIABLE DE ENTORNO
+const API_BASE_URL = process.env.API_URL || "https://pf-grupo5-8.onrender.com"
 
 // Función helper para obtener headers con autenticación
 const getAuthHeaders = () => {
@@ -15,6 +16,7 @@ const getAuthHeaders = () => {
 
   // ✅ AGREGADO: Log para verificar el token
   console.log("🔑 Token encontrado:", !!token)
+  console.log("🔗 Using API:", API_BASE_URL) // Debug API URL
   if (token) {
     console.log("🔑 Token (primeros 20 chars):", token.substring(0, 20) + "...")
   }
@@ -83,6 +85,17 @@ export const paymentsService = {
         console.error("   Status Text:", response.statusText)
         console.error("   Response Data:", responseData)
 
+        // ✅ MEJORADO: Manejo específico de errores
+        if (response.status === 401) {
+          throw new Error("No estás autenticado. Por favor inicia sesión.")
+        }
+        if (response.status === 403) {
+          throw new Error("No tienes permisos para crear pagos.")
+        }
+        if (response.status === 404) {
+          throw new Error("Carrito no encontrado.")
+        }
+
         const errorMessage =
           responseData.message ||
           responseData.error ||
@@ -130,12 +143,10 @@ export const paymentsService = {
     paymentData: PaymentSuccessRequest
   ): Promise<PaymentResponse> => {
     try {
-      console.log(
-        "🔗 Confirming payment success:",
-        `${API_BASE_URL}/payments/success`
-      )
+      const url = `${API_BASE_URL}/payments/success`
+      console.log("🔗 Confirming payment success:", url)
 
-      const response = await fetch(`${API_BASE_URL}/payments/success`, {
+      const response = await fetch(url, {
         method: "POST",
         headers: getAuthHeaders(),
         credentials: "include",
@@ -143,13 +154,23 @@ export const paymentsService = {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ Error confirming payment success:", errorData)
+
+        if (response.status === 401) {
+          throw new Error("No estás autenticado. Por favor inicia sesión.")
+        }
+
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        )
       }
 
       const result = await response.json()
+      console.log("✅ Payment success confirmed:", result)
       return result
     } catch (error) {
-      console.error("Error confirming payment success:", error)
+      console.error("❌ Error confirming payment success:", error)
       throw error
     }
   },
@@ -159,12 +180,10 @@ export const paymentsService = {
     paymentData: PaymentFailureRequest
   ): Promise<PaymentResponse> => {
     try {
-      console.log(
-        "🔗 Confirming payment failure:",
-        `${API_BASE_URL}/payments/failure`
-      )
+      const url = `${API_BASE_URL}/payments/failure`
+      console.log("🔗 Confirming payment failure:", url)
 
-      const response = await fetch(`${API_BASE_URL}/payments/failure`, {
+      const response = await fetch(url, {
         method: "POST",
         headers: getAuthHeaders(),
         credentials: "include",
@@ -172,13 +191,23 @@ export const paymentsService = {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ Error confirming payment failure:", errorData)
+
+        if (response.status === 401) {
+          throw new Error("No estás autenticado. Por favor inicia sesión.")
+        }
+
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        )
       }
 
       const result = await response.json()
+      console.log("✅ Payment failure confirmed:", result)
       return result
     } catch (error) {
-      console.error("Error confirming payment failure:", error)
+      console.error("❌ Error confirming payment failure:", error)
       throw error
     }
   },
@@ -186,12 +215,10 @@ export const paymentsService = {
   // Crear pago pendiente (el endpoint original)
   createPendingPayment: async (): Promise<{ ok: boolean; message: string }> => {
     try {
-      console.log(
-        "🔗 Creating pending payment:",
-        `${API_BASE_URL}/payments/pending`
-      )
+      const url = `${API_BASE_URL}/payments/pending`
+      console.log("🔗 Creating pending payment:", url)
 
-      const response = await fetch(`${API_BASE_URL}/payments/pending`, {
+      const response = await fetch(url, {
         method: "POST",
         headers: getAuthHeaders(),
         credentials: "include",
@@ -199,13 +226,97 @@ export const paymentsService = {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ Error creating pending payment:", errorData)
+
+        if (response.status === 401) {
+          throw new Error("No estás autenticado. Por favor inicia sesión.")
+        }
+
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        )
       }
 
       const result = await response.json()
+      console.log("✅ Pending payment created:", result)
       return result
     } catch (error) {
-      console.error("Error creating pending payment:", error)
+      console.error("❌ Error creating pending payment:", error)
+      throw error
+    }
+  },
+
+  // ✅ BONUS: Verificar estado de pago
+  checkPaymentStatus: async (paymentId: string): Promise<PaymentResponse> => {
+    try {
+      const url = `${API_BASE_URL}/payments/status/${paymentId}`
+      console.log("🔗 Checking payment status:", url)
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ Error checking payment status:", errorData)
+
+        if (response.status === 401) {
+          throw new Error("No estás autenticado. Por favor inicia sesión.")
+        }
+        if (response.status === 404) {
+          throw new Error("Pago no encontrado.")
+        }
+
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        )
+      }
+
+      const result = await response.json()
+      console.log("✅ Payment status retrieved:", result)
+      return result
+    } catch (error) {
+      console.error("❌ Error checking payment status:", error)
+      throw error
+    }
+  },
+
+  // ✅ BONUS: Obtener historial de pagos
+  getPaymentHistory: async (userId: string): Promise<PaymentResponse[]> => {
+    try {
+      const url = `${API_BASE_URL}/payments/history/${userId}`
+      console.log("🔗 Getting payment history:", url)
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ Error getting payment history:", errorData)
+
+        if (response.status === 401) {
+          throw new Error("No estás autenticado. Por favor inicia sesión.")
+        }
+        if (response.status === 403) {
+          throw new Error("No tienes permisos para ver este historial.")
+        }
+
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        )
+      }
+
+      const result = await response.json()
+      console.log("✅ Payment history retrieved:", result.length || 0)
+      return result
+    } catch (error) {
+      console.error("❌ Error getting payment history:", error)
       throw error
     }
   },

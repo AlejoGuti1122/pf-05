@@ -127,8 +127,9 @@ const ButtonGoogle = () => {
 
   const handleGoogleLogin = () => {
     setIsLoading(true)
-    // Redirigir al endpoint que te dio el backend
-    window.location.href = "http://localhost:3001/auth/google/redirect"
+    // Usar la variable de entorno
+    const apiUrl = process.env.API_URL || "https://pf-grupo5-8.onrender.com"
+    window.location.href = `${apiUrl}/auth/google/redirect`
   }
 
   return (

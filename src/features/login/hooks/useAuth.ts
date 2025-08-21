@@ -125,11 +125,14 @@ const useAuth = (): UseAuthReturn => {
     return () => clearInterval(interval)
   }, [user, checkAuthState])
 
+  
+
   // ✅ LOGIN
   const login = useCallback(
     async (credentials: LoginRequest): Promise<AuthResponse> => {
       setLoading(true)
       setError(null)
+      
 
       try {
         console.log("🔄 useAuth - Iniciando login...")
@@ -157,6 +160,7 @@ const useAuth = (): UseAuthReturn => {
     },
     []
   )
+  
 
   // ✅ REGISTER
   const register = useCallback(
@@ -183,6 +187,7 @@ const useAuth = (): UseAuthReturn => {
     },
     []
   )
+  
 
   // ✅ LOGOUT MEJORADO
   const logout = useCallback(async (): Promise<void> => {

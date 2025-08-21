@@ -1,16 +1,8 @@
-// hooks/useRegister.ts - Versión sin auto-login
+// hooks/useRegister.ts - Versión usando authService
 import { useState, useCallback } from "react"
 
-interface RegisterRequest {
-  name: string
-  email: string
-  password: string
-  confirmPassword: string
-  phone: number
-  country: string
-  address: string
-  city: string
-}
+import { RegisterRequest } from "@/features/register/types/register" // <-- IMPORTAR TIPOS
+import { authService } from "@/features/login/services/login-service"
 
 interface RegisterResponse {
   token: string
@@ -50,29 +42,11 @@ const useRegister = (): UseRegisterReturn => {
       setSuccess(false)
 
       try {
-        const response = await fetch(
-          "http://localhost:3001/auth/register",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(userData),
-          }
-        )
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(
-            errorData.message ||
-              `Error ${response.status}: ${response.statusText}`
-          )
-        }
-
-        const result: RegisterResponse = await response.json()
+        // ✅ USAR AUTHSERVICE EN LUGAR DE FETCH DIRECTO
+        const result = await authService.register(userData)
         setSuccess(true)
 
-        // ❌ NO GUARDAR TOKEN AUTOMÁTICAMENTE
+        // ❌ NO GUARDAR TOKEN AUTOMÁTICAMENTE (como antes)
         // localStorage.setItem("token", result.token)
         // localStorage.setItem("user", JSON.stringify(result.user))
 

@@ -5,8 +5,8 @@ import Product, {
   UpdateProductRequest,
 } from "../types/products"
 
-// ✅ CORREGIDO: Sin /api al final
-const API_BASE_URL = "http://localhost:3001"
+// ✅ USAR VARIABLE DE ENTORNO
+const API_BASE_URL = process.env.API_URL || "https://pf-grupo5-8.onrender.com"
 
 class ProductsService {
   private async request<T>(
@@ -14,6 +14,8 @@ class ProductsService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`
+
+    console.log("🔗 ProductsService request:", url)
 
     try {
       const response = await fetch(url, {
@@ -25,19 +27,22 @@ class ProductsService {
       })
 
       if (!response.ok) {
+        console.error("❌ ProductsService error:", response.status, response.statusText)
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
 
-      return await response.json()
+      const data = await response.json()
+      console.log("✅ ProductsService success:", endpoint)
+      return data
     } catch (error) {
-      console.error("API Error:", error)
+      console.error("❌ ProductsService API Error:", error)
       throw error
     }
   }
 
   // Obtener todos los productos
   getAllProducts(): Promise<Product[]> {
-    return this.request<Product[]>("/products")  // ✅ Sin /api
+    return this.request<Product[]>("/products")
   }
 
   // Obtener producto por ID
@@ -69,6 +74,31 @@ class ProductsService {
     return this.request<void>(`/products/${id}`, {
       method: "DELETE",
     })
+  }
+
+  // ✅ BONUS: Método para obtener productos por categoría
+  getProductsByCategory(categoryId: string): Promise<Product[]> {
+    return this.request<Product[]>(`/products/category/${categoryId}`)
+  }
+
+  // ✅ BONUS: Método para buscar productos
+  searchProducts(query: string): Promise<Product[]> {
+    const searchParams = new URLSearchParams({ search: query })
+    return this.request<Product[]>(`/products?${searchParams.toString()}`)
+  }
+
+  // ✅ BONUS: Método para obtener productos con paginación
+  getProductsPaginated(page: number = 1, limit: number = 10): Promise<{
+    products: Product[]
+    total: number
+    page: number
+    totalPages: number
+  }> {
+    const searchParams = new URLSearchParams({ 
+      page: page.toString(), 
+      limit: limit.toString() 
+    })
+    return this.request(`/products?${searchParams.toString()}`)
   }
 }
 

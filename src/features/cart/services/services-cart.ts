@@ -9,10 +9,13 @@ import {
   MergeCartRequest,
 } from "../types/cart"
 
-const API_BASE_URL = "http://localhost:3001" // URL directa como en tu backend
+// ✅ USAR VARIABLE DE ENTORNO
+const API_BASE_URL = process.env.API_URL || "https://pf-grupo5-8.onrender.com"
 
 class CartService {
   private async fetchWithAuth(url: string, options: RequestInit = {}) {
+
+    
     // Obtener token del localStorage (ajusta según tu implementación)
     const token =
       localStorage.getItem("token") || localStorage.getItem("authToken")
@@ -22,9 +25,11 @@ class CartService {
       ...(token && { Authorization: `Bearer ${token}` }), // Agregar token si existe
       ...options.headers,
     }
+    
 
     const fullUrl = `${API_BASE_URL}${url}`
     console.log("🔗 Calling API:", fullUrl) // Debug
+    console.log("🔗 Using API Base:", API_BASE_URL) // Debug API URL
     console.log("🔑 Using token:", !!token) // Debug (sin mostrar el token completo)
 
     try {
@@ -42,6 +47,18 @@ class CartService {
           message: "Error de conexión",
         }))
         console.error("❌ API Error:", error) // Debug
+
+        // ✅ MEJORADO: Manejo específico de errores
+        if (response.status === 401) {
+          throw new Error("No estás autenticado. Por favor inicia sesión.")
+        }
+        if (response.status === 403) {
+          throw new Error("No tienes permisos para acceder al carrito.")
+        }
+        if (response.status === 404) {
+          throw new Error("Carrito o item no encontrado.")
+        }
+
         throw new Error(error.message || "Error en la petición")
       }
 
@@ -168,10 +185,59 @@ class CartService {
   }> {
     console.log("🔍 Validando carrito para checkout...") // Debug
     const response = await this.fetchWithAuth("/cart/checkout", {
-      // ← CAMBIO AQUÍ
       method: "POST",
     })
     console.log("✅ Respuesta validación checkout:", response) // Debug
+    return response
+  }
+
+  // ✅ BONUS: Obtener resumen del carrito
+  async getCartSummary(): Promise<{
+    totalItems: number
+    totalAmount: number
+    currency: string
+    hasItems: boolean
+  }> {
+    console.log("📊 Obteniendo resumen del carrito...") // Debug
+    const response = await this.fetchWithAuth("/cart/summary")
+    console.log("✅ Resumen del carrito:", response) // Debug
+    return response
+  }
+
+  // ✅ BONUS: Aplicar cupón de descuento
+  async applyCoupon(couponCode: string): Promise<CartResponse> {
+    console.log("🎫 Aplicando cupón:", couponCode) // Debug
+    const response = await this.fetchWithAuth("/cart/coupon", {
+      method: "POST",
+      body: JSON.stringify({ couponCode }),
+    })
+    console.log("✅ Cupón aplicado:", response) // Debug
+    return response
+  }
+
+  // ✅ BONUS: Remover cupón
+  async removeCoupon(): Promise<CartResponse> {
+    console.log("🗑️ Removiendo cupón...") // Debug
+    const response = await this.fetchWithAuth("/cart/coupon", {
+      method: "DELETE",
+    })
+    console.log("✅ Cupón removido:", response) // Debug
+    return response
+  }
+
+  // ✅ BONUS: Verificar disponibilidad de stock
+  async checkStockAvailability(): Promise<{
+    available: boolean
+    unavailableItems: Array<{
+      itemId: string
+      productId: string
+      requestedQuantity: number
+      availableStock: number
+    }>
+  }> {
+    console.log("📦 Verificando disponibilidad de stock...") // Debug
+    const response = await this.fetchWithAuth("/cart/stock-check")
+    console.log("✅ Verificación de stock:", response) // Debug
     return response
   }
 }

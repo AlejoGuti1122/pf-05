@@ -11,7 +11,7 @@ class AuthService {
   private baseURL: string
 
   constructor() {
-    this.baseURL = "http://localhost:3001"
+    this.baseURL = process.env.API_URL || "https://pf-grupo5-8.onrender.com"
   }
 
   // ✅ FUNCIÓN PARA DECODIFICAR JWT
@@ -37,14 +37,20 @@ class AuthService {
   }
 
   async login(credentials: LoginRequest): Promise<AuthResponse> {
+    console.log("📤 DATOS QUE ESTOY ENVIANDO:", credentials) // <- NUEVO
+    console.log("📤 URL COMPLETA:", `${this.baseURL}/auth/signin`) // <- NUEVO
+
     const response = await fetch(`${this.baseURL}/auth/signin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(credentials),
     })
 
+    console.log("📥 STATUS RESPONSE:", response.status) // <- NUEVO
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
+      console.log("❌ ERROR DATA:", errorData) // <- NUEVO
       throw new Error(
         errorData.message || `Error ${response.status}: ${response.statusText}`
       )
@@ -101,6 +107,9 @@ class AuthService {
   }
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
+    console.log("📤 REGISTRANDO CON:", userData) // <- NUEVO
+    console.log("📤 URL REGISTER:", `${this.baseURL}/auth/register`) // <- NUEVO
+
     const response = await fetch(`${this.baseURL}/auth/register`, {
       method: "POST",
       headers: {
@@ -109,14 +118,18 @@ class AuthService {
       body: JSON.stringify(userData),
     })
 
+    console.log("📥 REGISTER STATUS:", response.status) // <- NUEVO
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
+      console.log("❌ REGISTER ERROR:", errorData) // <- NUEVO
       throw new Error(
         errorData.message || `Error ${response.status}: ${response.statusText}`
       )
     }
 
     const data = await response.json()
+    console.log("✅ REGISTER RESPONSE:", data) // <- NUEVO
 
     // ✅ APLICAR LA MISMA LÓGICA QUE EN LOGIN
     const token =
