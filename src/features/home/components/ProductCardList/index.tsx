@@ -18,6 +18,9 @@ import useProductsFiltered from "../../hooks/useFilters"
 import Image from "next/image"
 import { useCartContext } from "../../../cart/context/index"
 
+const PLACEHOLDER_IMAGE =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='240'%3E%3Crect width='300' height='240' fill='%23f1f5f9'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%2364748b' font-size='14'%3EImagen No Disponible%3C/text%3E%3C/svg%3E"
+
 interface ProductCardsListProps {
   filters?: FilterState
   sortBy?: "name" | "price" | "brand" | "year"
@@ -254,8 +257,9 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
                     className="object-contain group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement
-                      target.src =
-                        "https://via.placeholder.com/300x240/f1f5f9/64748b?text=Imagen+No+Disponible"
+                      if (!target.src.includes("data:image/svg")) {
+                        target.src = PLACEHOLDER_IMAGE
+                      }
                     }}
                   />
 

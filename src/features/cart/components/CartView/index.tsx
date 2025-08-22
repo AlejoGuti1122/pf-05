@@ -287,8 +287,11 @@ const ShoppingCart = () => {
                                 className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg border border-gray-200"
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement
-                                  target.src =
-                                    "https://via.placeholder.com/80x80/f1f5f9/64748b?text=Sin+Imagen"
+                                  // Evitar bucle infinito verificando si ya es el placeholder
+                                  if (!target.src.includes("picsum.photos")) {
+                                    target.src =
+                                      "https://picsum.photos/80/80?grayscale&blur=1"
+                                  }
                                 }}
                               />
                             ) : (
@@ -297,113 +300,113 @@ const ShoppingCart = () => {
                               </div>
                             )}
                           </div>
+                        </div>
 
-                          {/* Product Info */}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-black text-lg mb-1 truncate">
-                              {itemName}
-                            </h3>
-                            <p className="text-red-600 font-bold text-xl mb-3">
-                              ${itemPrice.toFixed(2)}
-                            </p>
+                        {/* Product Info */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-black text-lg mb-1 truncate">
+                            {itemName}
+                          </h3>
+                          <p className="text-red-600 font-bold text-xl mb-3">
+                            ${itemPrice.toFixed(2)}
+                          </p>
 
-                            {/* ✅ NUEVO: Mostrar flags si existen */}
-                            {item.flags && (
-                              <div className="mb-3 space-y-1">
-                                {item.flags.priceChanged && (
-                                  <span className="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
-                                    Precio cambió
-                                  </span>
-                                )}
-                                {item.flags.insufficientStock && (
-                                  <span className="inline-block bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
-                                    Stock limitado
-                                  </span>
-                                )}
-                                {item.flags.outOfStock && (
-                                  <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                                    Sin stock
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            {/* ✅ CORREGIDO: Quantity Controls con iconos alineados */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3 flex-1">
-                                <span className="text-sm font-medium text-gray-700">
-                                  Cantidad:
+                          {/* ✅ NUEVO: Mostrar flags si existen */}
+                          {item.flags && (
+                            <div className="mb-3 space-y-1">
+                              {item.flags.priceChanged && (
+                                <span className="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
+                                  Precio cambió
                                 </span>
-                                <div className="flex items-center border border-gray-300 rounded-lg">
-                                  <button
-                                    onClick={() =>
-                                      handleQuantityChange(
-                                        item.id,
-                                        itemQuantity - 1
-                                      )
-                                    }
-                                    disabled={
-                                      isLoading ||
-                                      itemQuantity <= 1 ||
-                                      item.flags?.outOfStock
-                                    }
-                                    className="p-2 hover:bg-gray-100 transition-colors rounded-l-lg disabled:opacity-50"
-                                  >
-                                    <Minus className="w-4 h-4" />
-                                  </button>
-                                  <span className="px-4 py-2 font-semibold min-w-[3rem] text-center">
-                                    {itemQuantity}
-                                  </span>
-                                  <button
-                                    onClick={() =>
-                                      handleQuantityChange(
-                                        item.id,
-                                        itemQuantity + 1
-                                      )
-                                    }
-                                    disabled={
-                                      isLoading ||
-                                      item.flags?.outOfStock ||
-                                      item.flags?.insufficientStock
-                                    }
-                                    className="p-2 hover:bg-gray-100 transition-colors rounded-r-lg disabled:opacity-50"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              <button
-                                onClick={() => handleRemoveItem(item.id)}
-                                disabled={isLoading}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0 ml-4"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Item Total */}
-                          <div className="text-right sm:text-left">
-                            <p className="text-lg font-bold text-black">
-                              $
-                              {(
-                                item.lineTotal ||
-                                item.total ||
-                                itemPrice * itemQuantity
-                              ).toFixed(2)}
-                            </p>
-                            {/* ✅ NUEVO: Mostrar precio unitario actual vs snapshot si cambió */}
-                            {item.unitPriceSnapshot &&
-                              item.unitPriceCurrent &&
-                              item.unitPriceSnapshot !==
-                                item.unitPriceCurrent && (
-                                <p className="text-sm text-gray-500 line-through">
-                                  Antes: $
-                                  {Number(item.unitPriceSnapshot).toFixed(2)}
-                                </p>
                               )}
+                              {item.flags.insufficientStock && (
+                                <span className="inline-block bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
+                                  Stock limitado
+                                </span>
+                              )}
+                              {item.flags.outOfStock && (
+                                <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                                  Sin stock
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* ✅ CORREGIDO: Quantity Controls con iconos alineados */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 flex-1">
+                              <span className="text-sm font-medium text-gray-700">
+                                Cantidad:
+                              </span>
+                              <div className="flex items-center border border-gray-300 rounded-lg">
+                                <button
+                                  onClick={() =>
+                                    handleQuantityChange(
+                                      item.id,
+                                      itemQuantity - 1
+                                    )
+                                  }
+                                  disabled={
+                                    isLoading ||
+                                    itemQuantity <= 1 ||
+                                    item.flags?.outOfStock
+                                  }
+                                  className="p-2 hover:bg-gray-100 transition-colors rounded-l-lg disabled:opacity-50"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                                <span className="px-4 py-2 font-semibold min-w-[3rem] text-center">
+                                  {itemQuantity}
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    handleQuantityChange(
+                                      item.id,
+                                      itemQuantity + 1
+                                    )
+                                  }
+                                  disabled={
+                                    isLoading ||
+                                    item.flags?.outOfStock ||
+                                    item.flags?.insufficientStock
+                                  }
+                                  className="p-2 hover:bg-gray-100 transition-colors rounded-r-lg disabled:opacity-50"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => handleRemoveItem(item.id)}
+                              disabled={isLoading}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0 ml-4"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
                           </div>
+                        </div>
+
+                        {/* Item Total */}
+                        <div className="text-right sm:text-left">
+                          <p className="text-lg font-bold text-black">
+                            $
+                            {(
+                              item.lineTotal ||
+                              item.total ||
+                              itemPrice * itemQuantity
+                            ).toFixed(2)}
+                          </p>
+                          {/* ✅ NUEVO: Mostrar precio unitario actual vs snapshot si cambió */}
+                          {item.unitPriceSnapshot &&
+                            item.unitPriceCurrent &&
+                            item.unitPriceSnapshot !==
+                              item.unitPriceCurrent && (
+                              <p className="text-sm text-gray-500 line-through">
+                                Antes: $
+                                {Number(item.unitPriceSnapshot).toFixed(2)}
+                              </p>
+                            )}
                         </div>
                       </div>
                     )
