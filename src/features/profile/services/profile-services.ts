@@ -5,32 +5,56 @@ import {
   UserProfile,
   UserStats,
 } from "../types/profile-types"
-
-// ✅ USAR LA MISMA VARIABLE QUE EL RESTO DE SERVICIOS
-const API_BASE_URL = process.env.API_URL || "https://pf-grupo5-8.onrender.com"
+import { getApiUrl } from "@/config/urls" // ← IMPORTAR CONFIGURACIÓN DINÁMICA
 
 class UserService {
+  constructor() {
+    // ✅ SOLO LOG EN CLIENTE
+    if (typeof window !== "undefined") {
+      console.log("👤 UserService initialized with baseURL:", getApiUrl())
+    }
+  }
+
+  // ✅ HELPER PARA OBTENER HEADERS CON AUTH
+  private getHeaders(includeAuth: boolean = true): HeadersInit {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+    }
+
+    if (includeAuth && typeof window !== "undefined") {
+      const token =
+        localStorage.getItem("token") ||
+        sessionStorage.getItem("token") ||
+        localStorage.getItem("authToken")
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+    }
+
+    return headers
+  }
+
   private async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     try {
-      const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token")
+      // ✅ USAR URLs DINÁMICAS
+      const url = getApiUrl(endpoint)
 
       const config: RequestInit = {
         headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
+          ...this.getHeaders(),
           ...options.headers,
         },
+        credentials: "include", // ✅ AGREGAR PARA COOKIES
         ...options,
       }
 
       console.log(`🔗 [USER SERVICE] ${options.method || "GET"} ${endpoint}`)
-      console.log(`🔗 [USER SERVICE] Using API: ${API_BASE_URL}`)
+      console.log(`🔗 [USER SERVICE] URL completa: ${url}`)
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
+      const response = await fetch(url, config)
 
       console.log(`📡 [USER SERVICE] Response status: ${response.status}`)
 
@@ -38,7 +62,7 @@ class UserService {
         const errorData = await response.json().catch(() => ({}))
         console.error(`❌ [USER SERVICE] Error details:`, errorData)
 
-        // ✅ MANEJO ESPECÍFICO DE ERRORES
+        // ✅ MANEJO ESPECÍFICO DE ERRORES MEJORADO
         if (response.status === 401) {
           throw new Error("No estás autenticado. Por favor inicia sesión.")
         }
@@ -48,9 +72,19 @@ class UserService {
         if (response.status === 404) {
           throw new Error("Usuario no encontrado.")
         }
+        if (response.status === 400) {
+          const message = Array.isArray(errorData.message)
+            ? errorData.message.join(", ")
+            : errorData.message || "Parámetros inválidos."
+          throw new Error(message)
+        }
+        if (response.status >= 500) {
+          throw new Error("Error del servidor. Intenta de nuevo más tarde.")
+        }
 
         throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
+          errorData.message ||
+            `Error ${response.status}: ${response.statusText}`
         )
       }
 
@@ -64,23 +98,43 @@ class UserService {
     }
   }
 
+  // ✅ HELPER PARA OBTENER USER ID DESDE LOCALSTORAGE
+  private getUserId(): string {
+    if (typeof window === "undefined") {
+      throw new Error("No disponible en servidor")
+    }
+
+    const userData = JSON.parse(localStorage.getItem("user") || "{}")
+    if (!userData.id) {
+      throw new Error("No se encontró ID de usuario. Por favor inicia sesión.")
+    }
+    return userData.id
+  }
+
   // Obtener perfil del usuario actual
   async getCurrentUserProfile(): Promise<UserProfile> {
     console.log("👤 [USER SERVICE] Obteniendo perfil del usuario actual")
 
-    // Obtener el ID del usuario desde localStorage
-    const userData = JSON.parse(localStorage.getItem("user") || "{}")
-    if (!userData.id) {
-      throw new Error("No se encontró ID de usuario")
-    }
+    try {
+      const userId = this.getUserId()
+      const response = await this.makeRequest<any>(`/users/${userId}`)
 
-    const response = await this.makeRequest<any>(`/users/${userData.id}`)
+      // ✅ MANEJAR DIFERENTES FORMATOS DE RESPUESTA
+      let user: UserProfile
+      if (response.data) {
+        user = response.data
+      } else if (response.user) {
+        user = response.user
+      } else {
+        user = response
+      }
 
-    // El backend puede devolver directamente el usuario o envuelto
-    if (response.data) {
-      return response.data
+      console.log("✅ [USER SERVICE] Perfil obtenido:", user.id || user.name)
+      return user
+    } catch (error) {
+      console.error("❌ [USER SERVICE] Error obteniendo perfil:", error)
+      throw error
     }
-    return response
   }
 
   // Actualizar perfil del usuario
@@ -89,22 +143,30 @@ class UserService {
   ): Promise<UserProfile> {
     console.log("✏️ [USER SERVICE] Actualizando perfil:", updateData)
 
-    const userData = JSON.parse(localStorage.getItem("user") || "{}")
-    if (!userData.id) {
-      throw new Error("No se encontró ID de usuario")
+    try {
+      const userId = this.getUserId()
+      const response = await this.makeRequest<any>(`/users/${userId}`, {
+        method: "PUT",
+        body: JSON.stringify(updateData),
+      })
+
+      // ✅ MANEJAR RESPUESTA Y ACTUALIZAR LOCALSTORAGE
+      const updatedUser = response.data || response.user || response
+
+      if (typeof window !== "undefined") {
+        // Mantener datos existentes y actualizar solo los nuevos
+        const currentUser = JSON.parse(localStorage.getItem("user") || "{}")
+        const mergedUser = { ...currentUser, ...updatedUser }
+        localStorage.setItem("user", JSON.stringify(mergedUser))
+        console.log("💾 [USER SERVICE] Usuario actualizado en localStorage")
+      }
+
+      console.log("✅ [USER SERVICE] Perfil actualizado exitosamente")
+      return updatedUser
+    } catch (error) {
+      console.error("❌ [USER SERVICE] Error actualizando perfil:", error)
+      throw error
     }
-
-    const response = await this.makeRequest<any>(`/users/${userData.id}`, {
-      method: "PUT",
-      body: JSON.stringify(updateData),
-    })
-
-    // Actualizar localStorage con los nuevos datos
-    const updatedUser = response.data || response
-    localStorage.setItem("user", JSON.stringify(updatedUser))
-    console.log("💾 [USER SERVICE] Usuario actualizado en localStorage")
-
-    return updatedUser
   }
 
   // Obtener estadísticas del usuario
@@ -112,29 +174,47 @@ class UserService {
     console.log("📊 [USER SERVICE] Obteniendo estadísticas del usuario")
 
     try {
-      const userData = JSON.parse(localStorage.getItem("user") || "{}")
-      if (!userData.id) {
-        throw new Error("No se encontró ID de usuario")
-      }
+      const userId = this.getUserId()
 
       // ✅ INTENTAR OBTENER STATS REALES DEL BACKEND
-      const response = await this.makeRequest<any>(
-        `/users/${userData.id}/stats`
-      )
-      return response.data || response
-    } catch (error) {
-      console.warn("⚠️ [USER SERVICE] Usando stats simuladas:", error)
+      const response = await this.makeRequest<any>(`/users/${userId}/stats`)
+      const stats = response.data || response
 
-      // ✅ FALLBACK: Estadísticas simuladas
-      return {
+      console.log("✅ [USER SERVICE] Estadísticas obtenidas:", stats)
+      return stats
+    } catch (error) {
+      console.warn(
+        "⚠️ [USER SERVICE] Endpoint de stats no disponible, usando simuladas:",
+        error
+      )
+
+      // ✅ FALLBACK: Estadísticas simuladas basadas en datos reales si están disponibles
+      const fallbackStats: UserStats = {
         orderCount: 24,
         favoriteCount: 18,
         points: 2450,
       }
+
+      // ✅ INTENTAR CALCULAR STATS REALES DESDE ORDERS
+      try {
+        const orders = await this.getUserOrders(1, 100).catch(() => ({
+          orders: [],
+          total: 0,
+        }))
+        if (orders.orders && orders.orders.length > 0) {
+          fallbackStats.orderCount = orders.total || orders.orders.length
+        }
+      } catch (ordersError) {
+        console.log(
+          "⚠️ [USER SERVICE] No se pudieron obtener orders para stats"
+        )
+      }
+
+      return fallbackStats
     }
   }
 
-  // ✅ BONUS: Obtener lista de usuarios (para admin)
+  // ✅ Obtener lista de usuarios (para admin)
   async getAllUsers(
     page: number = 1,
     limit: number = 10
@@ -146,84 +226,223 @@ class UserService {
   }> {
     console.log("👥 [USER SERVICE] Obteniendo lista de usuarios")
 
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
-    })
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: Math.min(limit, 100).toString(), // ✅ Máximo 100
+      })
 
-    return this.makeRequest(`/users?${params.toString()}`)
+      const response = await this.makeRequest<any>(
+        `/users?${params.toString()}`
+      )
+
+      // ✅ MANEJAR DIFERENTES FORMATOS DE RESPUESTA
+      let result = {
+        users: [] as UserProfile[],
+        total: 0,
+        page: page,
+        totalPages: 1,
+      }
+
+      if (Array.isArray(response)) {
+        result.users = response
+        result.total = response.length
+      } else if (response.data) {
+        result = { ...result, ...response.data }
+      } else {
+        result = { ...result, ...response }
+      }
+
+      console.log("✅ [USER SERVICE] Usuarios obtenidos:", result.users.length)
+      return result
+    } catch (error) {
+      console.error("❌ [USER SERVICE] Error obteniendo usuarios:", error)
+      throw error
+    }
   }
 
-  // ✅ BONUS: Eliminar usuario (para admin)
+  // ✅ Eliminar usuario (para admin)
   async deleteUser(userId: string): Promise<{ success: boolean }> {
+    if (!userId || userId.trim().length === 0) {
+      throw new Error("ID de usuario requerido.")
+    }
+
     console.log("🗑️ [USER SERVICE] Eliminando usuario:", userId)
 
-    const response = await this.makeRequest<{ success: boolean }>(
-      `/users/${userId}`,
-      {
-        method: "DELETE",
-      }
-    )
+    try {
+      const response = await this.makeRequest<{ success: boolean }>(
+        `/users/${userId.trim()}`,
+        {
+          method: "DELETE",
+        }
+      )
 
-    return response.success !== undefined ? response : { success: true }
+      const result =
+        response.success !== undefined ? response : { success: true }
+      console.log("✅ [USER SERVICE] Usuario eliminado exitosamente")
+      return result
+    } catch (error) {
+      console.error("❌ [USER SERVICE] Error eliminando usuario:", error)
+      throw error
+    }
   }
 
-  // ✅ BONUS: Cambiar contraseña
+  // ✅ Cambiar contraseña
   async changePassword(data: {
     currentPassword: string
     newPassword: string
   }): Promise<{ success: boolean }> {
     console.log("🔐 [USER SERVICE] Cambiando contraseña")
 
-    const userData = JSON.parse(localStorage.getItem("user") || "{}")
-    if (!userData.id) {
-      throw new Error("No se encontró ID de usuario")
+    if (!data.currentPassword || !data.newPassword) {
+      throw new Error("Contraseña actual y nueva son requeridas.")
     }
 
-    const response = await this.makeRequest<{ success: boolean }>(
-      `/users/${userData.id}/password`,
-      {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }
-    )
+    if (data.newPassword.length < 6) {
+      throw new Error("La nueva contraseña debe tener al menos 6 caracteres.")
+    }
 
-    return response.success !== undefined ? response : { success: true }
+    try {
+      const userId = this.getUserId()
+      const response = await this.makeRequest<{ success: boolean }>(
+        `/users/${userId}/password`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }
+      )
+
+      const result =
+        response.success !== undefined ? response : { success: true }
+      console.log("✅ [USER SERVICE] Contraseña cambiada exitosamente")
+      return result
+    } catch (error) {
+      console.error("❌ [USER SERVICE] Error cambiando contraseña:", error)
+      throw error
+    }
   }
 
-  // ✅ BONUS: Obtener pedidos del usuario
-  async getUserOrders(page: number = 1, limit: number = 10): Promise<any> {
+  // ✅ Obtener pedidos del usuario
+  async getUserOrders(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{
+    orders: any[]
+    total: number
+    page: number
+    totalPages: number
+  }> {
     console.log("📦 [USER SERVICE] Obteniendo pedidos del usuario")
 
-    const userData = JSON.parse(localStorage.getItem("user") || "{}")
-    if (!userData.id) {
-      throw new Error("No se encontró ID de usuario")
+    try {
+      const userId = this.getUserId()
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: Math.min(limit, 100).toString(),
+      })
+
+      const response = await this.makeRequest<any>(
+        `/users/${userId}/orders?${params.toString()}`
+      )
+
+      // ✅ MANEJAR DIFERENTES FORMATOS DE RESPUESTA
+      let result = {
+        orders: [] as any[],
+        total: 0,
+        page: page,
+        totalPages: 1,
+      }
+
+      if (Array.isArray(response)) {
+        result.orders = response
+        result.total = response.length
+      } else if (response.data) {
+        result = { ...result, ...response.data }
+      } else if (response.orders) {
+        result = { ...result, ...response }
+      } else {
+        result = { ...result, ...response }
+      }
+
+      console.log("✅ [USER SERVICE] Pedidos obtenidos:", result.orders.length)
+      return result
+    } catch (error) {
+      console.error("❌ [USER SERVICE] Error obteniendo pedidos:", error)
+      throw error
     }
-
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
-    })
-
-    return this.makeRequest(`/users/${userData.id}/orders?${params.toString()}`)
   }
 
-  // ✅ BONUS: Activar/Desactivar usuario (para admin)
+  // ✅ Activar/Desactivar usuario (para admin)
   async toggleUserStatus(
     userId: string,
     isActive: boolean
   ): Promise<UserProfile> {
+    if (!userId || userId.trim().length === 0) {
+      throw new Error("ID de usuario requerido.")
+    }
+
     console.log(
       "🔄 [USER SERVICE] Cambiando estado del usuario:",
       userId,
       isActive
     )
 
-    return this.makeRequest(`/users/${userId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ isActive }),
-    })
+    try {
+      const response = await this.makeRequest<any>(
+        `/users/${userId.trim()}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ isActive }),
+        }
+      )
+
+      const user = response.data || response.user || response
+      console.log("✅ [USER SERVICE] Estado del usuario actualizado")
+      return user
+    } catch (error) {
+      console.error("❌ [USER SERVICE] Error cambiando estado:", error)
+      throw error
+    }
+  }
+
+  // ✅ BONUS: Verificar si el usuario tiene permisos de admin
+  isAdmin(): boolean {
+    if (typeof window === "undefined") return false
+
+    try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}")
+      return userData.isAdmin === true || userData.isSuperAdmin === true
+    } catch (error) {
+      return false
+    }
+  }
+
+  // ✅ BONUS: Obtener datos del usuario desde localStorage
+  getCurrentUserData(): any {
+    if (typeof window === "undefined") return null
+
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}")
+    } catch (error) {
+      console.error(
+        "❌ [USER SERVICE] Error leyendo usuario de localStorage:",
+        error
+      )
+      return {}
+    }
+  }
+
+  // ✅ BONUS: Limpiar datos del usuario (logout helper)
+  clearUserData(): void {
+    if (typeof window === "undefined") return
+
+    localStorage.removeItem("user")
+    localStorage.removeItem("token")
+    sessionStorage.removeItem("token")
+    console.log("🧹 [USER SERVICE] Datos de usuario limpiados")
   }
 }
 
-export const userService = new UserService()
+// ✅ Crear instancia y exportar
+const userService = new UserService()
+export { userService }

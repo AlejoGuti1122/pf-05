@@ -8,29 +8,32 @@ import {
   UpdateItemQuantityRequest,
   MergeCartRequest,
 } from "../types/cart"
-
-// ✅ USAR VARIABLE DE ENTORNO
-const API_BASE_URL = process.env.API_URL || "https://pf-grupo5-8.onrender.com"
+import { getApiUrl } from "@/config/urls" // ← IMPORTAR CONFIGURACIÓN DINÁMICA
 
 class CartService {
-  private async fetchWithAuth(url: string, options: RequestInit = {}) {
-
-    
-    // Obtener token del localStorage (ajusta según tu implementación)
+  // ✅ MÉTODO MEJORADO PARA FETCH CON NEXT.JS
+  private async fetchWithAuth(endpoint: string, options: RequestInit = {}) {
+    // ✅ PROTEGER LOCALSTORAGE PARA NEXT.JS
     const token =
-      localStorage.getItem("token") || localStorage.getItem("authToken")
+      typeof window !== "undefined"
+        ? localStorage.getItem("token") || localStorage.getItem("authToken")
+        : null
 
     const headers = {
       "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }), // Agregar token si existe
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     }
-    
 
-    const fullUrl = `${API_BASE_URL}${url}`
-    console.log("🔗 Calling API:", fullUrl) // Debug
-    console.log("🔗 Using API Base:", API_BASE_URL) // Debug API URL
-    console.log("🔑 Using token:", !!token) // Debug (sin mostrar el token completo)
+    // ✅ USAR URLs DINÁMICAS
+    const fullUrl = getApiUrl(endpoint)
+
+    // ✅ SOLO LOGS EN CLIENTE
+    if (typeof window !== "undefined") {
+      console.log("🔗 Calling API:", fullUrl)
+      console.log("🔗 Using API Base:", getApiUrl())
+      console.log("🔑 Using token:", !!token)
+    }
 
     try {
       const response = await fetch(fullUrl, {
@@ -39,14 +42,19 @@ class CartService {
         credentials: "include", // Para cookies si las usas
       })
 
-      console.log("📡 Response status:", response.status) // Debug
-      console.log("📡 Response ok:", response.ok) // Debug
+      if (typeof window !== "undefined") {
+        console.log("📡 Response status:", response.status)
+        console.log("📡 Response ok:", response.ok)
+      }
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({
           message: "Error de conexión",
         }))
-        console.error("❌ API Error:", error) // Debug
+
+        if (typeof window !== "undefined") {
+          console.error("❌ API Error:", error)
+        }
 
         // ✅ MEJORADO: Manejo específico de errores
         if (response.status === 401) {
@@ -58,65 +66,99 @@ class CartService {
         if (response.status === 404) {
           throw new Error("Carrito o item no encontrado.")
         }
+        if (response.status === 409) {
+          throw new Error(
+            "Conflicto en el carrito. Algunos productos no están disponibles."
+          )
+        }
+        if (response.status >= 500) {
+          throw new Error("Error del servidor. Intenta de nuevo más tarde.")
+        }
 
         throw new Error(error.message || "Error en la petición")
       }
 
-      // ✅ NUEVO: Manejar respuestas DELETE correctamente
+      // ✅ MANEJAR RESPUESTAS DELETE CORRECTAMENTE
       if (options.method === "DELETE" && response.ok) {
-        console.log("✅ DELETE exitoso - respuesta vacía esperada")
+        if (typeof window !== "undefined") {
+          console.log("✅ DELETE exitoso - respuesta vacía esperada")
+        }
         return { success: true, message: "Deleted successfully" }
       }
 
-      // ✅ NUEVO: Verificar si hay contenido antes de parsear JSON
+      // ✅ VERIFICAR SI HAY CONTENIDO ANTES DE PARSEAR JSON
       const contentLength = response.headers.get("content-length")
       const contentType = response.headers.get("content-type")
 
       // Si no hay contenido o no es JSON, no parsear
       if (contentLength === "0" || !contentType?.includes("application/json")) {
-        console.log("✅ Respuesta sin contenido JSON")
+        if (typeof window !== "undefined") {
+          console.log("✅ Respuesta sin contenido JSON")
+        }
         return response.ok ? { success: true } : null
       }
 
-      // ✅ NUEVO: Verificar que hay texto antes de parsear
+      // ✅ VERIFICAR QUE HAY TEXTO ANTES DE PARSEAR
       const text = await response.text()
-      console.log("📋 Response text:", `"${text}"`) // Debug
+
+      if (typeof window !== "undefined") {
+        console.log("📋 Response text:", `"${text}"`)
+      }
 
       if (!text || text.trim().length === 0) {
-        console.log("✅ Respuesta vacía pero exitosa")
+        if (typeof window !== "undefined") {
+          console.log("✅ Respuesta vacía pero exitosa")
+        }
         return response.ok ? { success: true } : null
       }
 
       // Solo parsear si hay contenido real
       const data = JSON.parse(text)
-      console.log("📦 API Response data:", data) // Debug
+
+      if (typeof window !== "undefined") {
+        console.log("📦 API Response data:", data)
+      }
+
       return data
     } catch (error) {
-      console.error("❌ Fetch error:", error) // Debug
+      if (typeof window !== "undefined") {
+        console.error("❌ Fetch error:", error)
+      }
       throw error
     }
   }
 
-  // GET /cart - Obtener carrito vigente (actualizado endpoint)
+  // GET /cart - Obtener carrito vigente
   async getCurrentCart(): Promise<CartResponse> {
     const response = await this.fetchWithAuth("/cart")
-    console.log("🛒 Respuesta del carrito:", response) // Debug
+
+    if (typeof window !== "undefined") {
+      console.log("🛒 Respuesta del carrito:", response)
+    }
+
     return response
   }
 
-  // GET /cart - Obtener carrito (alias de /cart/me)
+  // GET /cart - Obtener carrito (alias)
   async getCart(): Promise<CartResponse> {
     return this.fetchWithAuth("/cart")
   }
 
   // POST /cart/items - Agregar item al carrito
   async addItem(data: AddItemToCartRequest): Promise<CartItemResponse> {
-    console.log("➕ Agregando item:", data) // Debug
+    if (typeof window !== "undefined") {
+      console.log("➕ Agregando item:", data)
+    }
+
     const response = await this.fetchWithAuth("/cart/items", {
       method: "POST",
       body: JSON.stringify(data),
     })
-    console.log("✅ Respuesta agregar item:", response) // Debug
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Respuesta agregar item:", response)
+    }
+
     return response
   }
 
@@ -125,7 +167,10 @@ class CartService {
     itemId: string,
     data: UpdateItemQuantityRequest
   ): Promise<CartItemResponse> {
-    console.log("🔄 Actualizando cantidad:", { itemId, data }) // Debug
+    if (typeof window !== "undefined") {
+      console.log("🔄 Actualizando cantidad:", { itemId, data })
+    }
+
     return this.fetchWithAuth(`/cart/items/${itemId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -134,21 +179,35 @@ class CartService {
 
   // DELETE /cart/items/{itemId} - Eliminar item
   async removeItem(itemId: string): Promise<{ success: boolean }> {
-    console.log("🗑️ Eliminando item:", itemId) // Debug
+    if (typeof window !== "undefined") {
+      console.log("🗑️ Eliminando item:", itemId)
+    }
+
     const response = await this.fetchWithAuth(`/cart/items/${itemId}`, {
       method: "DELETE",
     })
-    console.log("✅ Item eliminado:", response) // Debug
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Item eliminado:", response)
+    }
+
     return response
   }
 
   // DELETE /cart - Vaciar carrito
   async clearCart(): Promise<{ success: boolean }> {
-    console.log("🧹 Vaciando carrito...") // Debug
+    if (typeof window !== "undefined") {
+      console.log("🧹 Vaciando carrito...")
+    }
+
     const response = await this.fetchWithAuth("/cart", {
       method: "DELETE",
     })
-    console.log("✅ Carrito vaciado:", response) // Debug
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Carrito vaciado:", response)
+    }
+
     return response
   }
 
@@ -161,20 +220,40 @@ class CartService {
 
   // POST /cart/refresh - Revalidar carrito
   async refreshCart(): Promise<CartResponse> {
-    return this.fetchWithAuth("/cart/refresh", {
+    if (typeof window !== "undefined") {
+      console.log("🔄 Refrescando carrito...")
+    }
+
+    const response = await this.fetchWithAuth("/cart/refresh", {
       method: "POST",
     })
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Carrito refrescado:", response)
+    }
+
+    return response
   }
 
   // POST /cart/merge - Fusionar carritos
   async mergeCarts(data: MergeCartRequest = {}): Promise<CartResponse> {
-    return this.fetchWithAuth("/cart/merge", {
+    if (typeof window !== "undefined") {
+      console.log("🔀 Fusionando carritos:", data)
+    }
+
+    const response = await this.fetchWithAuth("/cart/merge", {
       method: "POST",
       body: JSON.stringify(data),
     })
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Carritos fusionados:", response)
+    }
+
+    return response
   }
 
-  // ✅ CORREGIDO: POST /cart/checkout - Validar y preparar payload para checkout
+  // POST /cart/checkout - Validar y preparar payload para checkout
   async validateCartForCheckout(): Promise<{
     success: boolean
     valid: boolean
@@ -183,49 +262,77 @@ class CartService {
     status?: string
     summary?: any
   }> {
-    console.log("🔍 Validando carrito para checkout...") // Debug
+    if (typeof window !== "undefined") {
+      console.log("🔍 Validando carrito para checkout...")
+    }
+
     const response = await this.fetchWithAuth("/cart/checkout", {
       method: "POST",
     })
-    console.log("✅ Respuesta validación checkout:", response) // Debug
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Respuesta validación checkout:", response)
+    }
+
     return response
   }
 
-  // ✅ BONUS: Obtener resumen del carrito
+  // ✅ MEJORADO: Obtener resumen del carrito
   async getCartSummary(): Promise<{
     totalItems: number
     totalAmount: number
     currency: string
     hasItems: boolean
   }> {
-    console.log("📊 Obteniendo resumen del carrito...") // Debug
+    if (typeof window !== "undefined") {
+      console.log("📊 Obteniendo resumen del carrito...")
+    }
+
     const response = await this.fetchWithAuth("/cart/summary")
-    console.log("✅ Resumen del carrito:", response) // Debug
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Resumen del carrito:", response)
+    }
+
     return response
   }
 
-  // ✅ BONUS: Aplicar cupón de descuento
+  // ✅ MEJORADO: Aplicar cupón de descuento
   async applyCoupon(couponCode: string): Promise<CartResponse> {
-    console.log("🎫 Aplicando cupón:", couponCode) // Debug
+    if (typeof window !== "undefined") {
+      console.log("🎫 Aplicando cupón:", couponCode)
+    }
+
     const response = await this.fetchWithAuth("/cart/coupon", {
       method: "POST",
       body: JSON.stringify({ couponCode }),
     })
-    console.log("✅ Cupón aplicado:", response) // Debug
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Cupón aplicado:", response)
+    }
+
     return response
   }
 
-  // ✅ BONUS: Remover cupón
+  // ✅ MEJORADO: Remover cupón
   async removeCoupon(): Promise<CartResponse> {
-    console.log("🗑️ Removiendo cupón...") // Debug
+    if (typeof window !== "undefined") {
+      console.log("🗑️ Removiendo cupón...")
+    }
+
     const response = await this.fetchWithAuth("/cart/coupon", {
       method: "DELETE",
     })
-    console.log("✅ Cupón removido:", response) // Debug
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Cupón removido:", response)
+    }
+
     return response
   }
 
-  // ✅ BONUS: Verificar disponibilidad de stock
+  // ✅ MEJORADO: Verificar disponibilidad de stock
   async checkStockAvailability(): Promise<{
     available: boolean
     unavailableItems: Array<{
@@ -235,9 +342,169 @@ class CartService {
       availableStock: number
     }>
   }> {
-    console.log("📦 Verificando disponibilidad de stock...") // Debug
+    if (typeof window !== "undefined") {
+      console.log("📦 Verificando disponibilidad de stock...")
+    }
+
     const response = await this.fetchWithAuth("/cart/stock-check")
-    console.log("✅ Verificación de stock:", response) // Debug
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Verificación de stock:", response)
+    }
+
+    return response
+  }
+
+  // ✅ BONUS: Obtener información detallada del carrito
+  async getCartDetails(): Promise<{
+    cart: CartResponse
+    shipping: {
+      available: boolean
+      cost: number
+      estimatedDays: number
+    }
+    taxes: {
+      rate: number
+      amount: number
+    }
+    totals: {
+      subtotal: number
+      shipping: number
+      taxes: number
+      total: number
+    }
+  }> {
+    if (typeof window !== "undefined") {
+      console.log("📋 Obteniendo detalles completos del carrito...")
+    }
+
+    const response = await this.fetchWithAuth("/cart/details")
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Detalles del carrito:", response)
+    }
+
+    return response
+  }
+
+  // ✅ BONUS: Guardar carrito para más tarde
+  async saveForLater(itemId: string): Promise<{ success: boolean }> {
+    if (typeof window !== "undefined") {
+      console.log("💾 Guardando item para más tarde:", itemId)
+    }
+
+    const response = await this.fetchWithAuth(
+      `/cart/items/${itemId}/save-later`,
+      {
+        method: "PATCH",
+      }
+    )
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Item guardado para más tarde:", response)
+    }
+
+    return response
+  }
+
+  // ✅ BONUS: Mover item guardado al carrito
+  async moveToCart(itemId: string): Promise<CartItemResponse> {
+    if (typeof window !== "undefined") {
+      console.log("🔄 Moviendo item al carrito:", itemId)
+    }
+
+    const response = await this.fetchWithAuth(
+      `/cart/items/${itemId}/move-to-cart`,
+      {
+        method: "PATCH",
+      }
+    )
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Item movido al carrito:", response)
+    }
+
+    return response
+  }
+
+  // ✅ BONUS: Obtener items guardados para más tarde
+  async getSavedItems(): Promise<{
+    items: Array<{
+      itemId: string
+      productId: string
+      name: string
+      price: number
+      image: string
+      savedAt: string
+    }>
+  }> {
+    if (typeof window !== "undefined") {
+      console.log("💾 Obteniendo items guardados...")
+    }
+
+    const response = await this.fetchWithAuth("/cart/saved-items")
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Items guardados:", response.items?.length || 0)
+    }
+
+    return response
+  }
+
+  // ✅ BONUS: Calcular envío
+  async calculateShipping(address: {
+    country: string
+    state: string
+    city: string
+    zipCode: string
+  }): Promise<{
+    options: Array<{
+      id: string
+      name: string
+      cost: number
+      estimatedDays: number
+      description: string
+    }>
+  }> {
+    if (typeof window !== "undefined") {
+      console.log("📦 Calculando opciones de envío:", address)
+    }
+
+    const response = await this.fetchWithAuth("/cart/shipping-options", {
+      method: "POST",
+      body: JSON.stringify(address),
+    })
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Opciones de envío:", response.options?.length || 0)
+    }
+
+    return response
+  }
+
+  // ✅ BONUS: Aplicar código promocional
+  async applyPromoCode(promoCode: string): Promise<{
+    success: boolean
+    discount: {
+      type: "percentage" | "fixed"
+      value: number
+      description: string
+    }
+    newTotal: number
+  }> {
+    if (typeof window !== "undefined") {
+      console.log("🎯 Aplicando código promocional:", promoCode)
+    }
+
+    const response = await this.fetchWithAuth("/cart/promo-code", {
+      method: "POST",
+      body: JSON.stringify({ promoCode }),
+    })
+
+    if (typeof window !== "undefined") {
+      console.log("✅ Código promocional aplicado:", response)
+    }
+
     return response
   }
 }
