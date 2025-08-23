@@ -28,7 +28,7 @@ import {
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Productos", url: "/products", icon: Package },
-  { title: "Órdenes", url: "/orders", icon: ShoppingCart },
+  { title: "Órdenes", url: "/ordenes", icon: ShoppingCart },
   { title: "Clientes", url: "/customers", icon: Users },
   { title: "Ventas", url: "/sales", icon: BarChart3 },
   { title: "Configuración", url: "/settings", icon: Settings },
