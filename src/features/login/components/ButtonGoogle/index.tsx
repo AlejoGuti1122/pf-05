@@ -2,8 +2,6 @@
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import React, { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import useAuth from "../../hooks/useAuth"
 
 const GoogleIcon = () => (
   <svg
@@ -31,110 +29,81 @@ const GoogleIcon = () => (
 
 const ButtonGoogle = () => {
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-  const { user, isAuthenticated } = useAuth() // Tu hook existente
+  const [isMounted, setIsMounted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Detectar cuando regresa de Google (el backend ya manejó todo)
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const token = urlParams.get("token")
-    const success = urlParams.get("success")
-    const error = urlParams.get("error")
-
-    // Debug: ver qué parámetros llegan
-    console.log("🔍 URL Params:", {
-      token: token,
-      success: success,
-      error: error,
-      fullURL: window.location.href,
-    })
-
-    // Si hay token en la URL (formato del backend)
-    if (token) {
-      console.log("🎯 Token detectado:", token)
-
-      // Verificar si es el objeto malformado
-      if (
-        token === "[object Object]" ||
-        token.includes("[object") ||
-        token.includes("Object]")
-      ) {
-        console.error("❌ Token malformado detectado:", token)
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        )
-        return
-      }
-
-      try {
-        // Decodificar el token si viene URL encoded
-        const decodedToken = decodeURIComponent(token)
-        console.log("🔓 Token decodificado:", decodedToken)
-
-        // Si el token viene como string JSON, parsearlo
-        let finalToken = decodedToken
-        if (decodedToken.startsWith("{")) {
-          const tokenData = JSON.parse(decodedToken)
-          console.log("📦 Token parseado:", tokenData)
-          finalToken = tokenData.token || tokenData.access_token || decodedToken
-        }
-
-        console.log("✅ Token final a guardar:", finalToken)
-
-        // Guardar en localStorage como lo hace tu sistema
-        localStorage.setItem("token", finalToken)
-        console.log("💾 Token guardado en localStorage")
-
-        // Limpiar URL
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        )
-        console.log("🧹 URL limpiada")
-
-        // Recargar para que useAuth detecte el cambio
-        console.log("🔄 Recargando página...")
-        window.location.reload()
-      } catch (error) {
-        console.error("❌ Error procesando token:", error)
-        // Limpiar URL con error
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        )
-      }
-    }
-    // Si hay success parameter
-    else if (success === "true") {
-      console.log("✅ Success detectado")
-      // Limpiar URL de parámetros
-      window.history.replaceState({}, document.title, window.location.pathname)
-
-      // El backend ya guardó todo, forzar actualización y redirigir
-      window.location.reload()
-    }
-    // Si hay error
-    else if (error) {
-      console.error("❌ Error en Google Auth:", error)
-      // Limpiar URL si hay error
-      window.history.replaceState({}, document.title, window.location.pathname)
-    }
+    setIsMounted(true)
+    console.log("🔍 ButtonGoogle montado")
   }, [])
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async (e: React.MouseEvent) => {
+    console.log("🚨 INICIO - handleGoogleLogin ejecutado")
+    e.preventDefault()
+    e.stopPropagation()
     setIsLoading(true)
-    // Redirigir al endpoint que te dio el backend
-    window.location.href = "http://localhost:3001/auth/google/redirect"
+    setError(null)
+
+    try {
+      // ✅ CREAR URL COMPLETA MANUALMENTE PARA FORZAR SELECCIÓN
+      const googleClientId =
+        "906975497977-j0vr60a3ijerhahsnnpsshdnaujj5et5.apps.googleusercontent.com"
+      const redirectUri = "http://localhost:3001/auth/google/redirect"
+
+      // Construir URL de Google con selección forzada
+      const googleAuthUrl = new URL(
+        "https://accounts.google.com/o/oauth2/v2/auth"
+      )
+      googleAuthUrl.searchParams.append("client_id", googleClientId)
+      googleAuthUrl.searchParams.append("redirect_uri", redirectUri)
+      googleAuthUrl.searchParams.append("response_type", "code")
+      googleAuthUrl.searchParams.append("scope", "openid email profile")
+      googleAuthUrl.searchParams.append("prompt", "select_account") // ← FORZAR SELECCIÓN
+      googleAuthUrl.searchParams.append("access_type", "offline")
+
+      console.log(
+        "🎯 URL completa con selección forzada:",
+        googleAuthUrl.toString()
+      )
+      console.log("🚀 Yendo directo a Google...")
+
+      // Ir directo a Google saltando el backend
+      window.location.href = googleAuthUrl.toString()
+    } catch (error) {
+      console.error("❌ Error en Google Auth:", error)
+      setError(
+        error instanceof Error ? error.message : "Error iniciando autenticación"
+      )
+      setIsLoading(false)
+    }
+  }
+
+  if (!isMounted) {
+    return (
+      <div className="flex justify-center items-center">
+        <div className="w-94 h-12 rounded-2xl flex items-center justify-center gap-3 bg-gray-200 text-gray-500 border border-gray-300">
+          <GoogleIcon />
+          <span className="font-medium">Cargando...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div>
+    <div className="space-y-2">
+      {/* Mostrar error si existe */}
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-center items-center">
         <Button
+          type="button"
           onClick={handleGoogleLogin}
           disabled={isLoading}
           variant="outline"
@@ -150,6 +119,14 @@ const ButtonGoogle = () => {
           </span>
         </Button>
       </div>
+
+      {/* Debug info solo en desarrollo */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="text-center text-xs text-gray-500">
+          Estado: {isMounted ? "✅ Listo" : "⏳ Cargando"} | Google ID:{" "}
+          {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "✅" : "❌"}
+        </div>
+      )}
     </div>
   )
 }

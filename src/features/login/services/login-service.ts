@@ -1,17 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// services/authService.ts - VERSIÓN CORREGIDA
+// services/authService.ts - VERSIÓN CON URLs DINÁMICAS PARA NEXT.JS
 
 import {
   AuthResponse,
   LoginRequest,
   RegisterRequest,
 } from "@/features/register/types/register"
+import { getApiUrl } from "@/config/urls" // ← IMPORTAR CONFIGURACIÓN DINÁMICA
 
 class AuthService {
   private baseURL: string
 
   constructor() {
-    this.baseURL = "http://localhost:3001"
+    // ✅ CORREGIDO: Usar configuración dinámica en lugar de hardcoded
+    this.baseURL = getApiUrl() // Esto dará la URL correcta según el entorno
+
+    // ✅ SOLO LOG EN CLIENTE (Next.js best practice)
+    if (typeof window !== "undefined") {
+      console.log("🌐 AuthService initialized with baseURL:", this.baseURL)
+      console.log("🔧 Environment:", process.env.NODE_ENV)
+    }
   }
 
   // ✅ FUNCIÓN PARA DECODIFICAR JWT
@@ -36,21 +44,83 @@ class AuthService {
     }
   }
 
+  // ✅ MÉTODO HELPER PARA FETCH CON MEJOR MANEJO DE ERRORES
+  private async makeRequest(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<any> {
+    // ✅ USAR getApiUrl PARA CADA REQUEST (URLs dinámicas)
+    const fullUrl = getApiUrl(endpoint)
+
+    if (typeof window !== "undefined") {
+      console.log("📤 Making request to:", fullUrl)
+      console.log("📤 Request options:", options)
+    }
+
+    try {
+      const response = await fetch(fullUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+        credentials: "include", // Para cookies si las usas
+        ...options,
+      })
+
+      if (typeof window !== "undefined") {
+        console.log("📥 Response status:", response.status)
+        console.log("📥 Response ok:", response.ok)
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+
+        if (typeof window !== "undefined") {
+          console.log("❌ Error response:", errorData)
+        }
+
+        // Manejar errores específicos
+        if (response.status === 401) {
+          throw new Error("Credenciales inválidas")
+        }
+        if (response.status === 403) {
+          throw new Error("No tienes permisos para realizar esta acción")
+        }
+        if (response.status >= 500) {
+          throw new Error("Error del servidor. Intenta de nuevo más tarde")
+        }
+
+        throw new Error(
+          errorData.message ||
+            errorData.error ||
+            `Error ${response.status}: ${response.statusText}`
+        )
+      }
+
+      const data = await response.json()
+
+      if (typeof window !== "undefined") {
+        console.log("✅ Response data:", data)
+      }
+
+      return data
+    } catch (error) {
+      if (typeof window !== "undefined") {
+        console.error("❌ Request failed:", error)
+      }
+      throw error
+    }
+  }
+
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseURL}/auth/signin`, {
+    console.log("📤 DATOS QUE ESTOY ENVIANDO:", credentials)
+    console.log("📤 URL COMPLETA:", getApiUrl("/auth/signin")) // ← URLs dinámicas
+
+    const data = await this.makeRequest("/auth/signin", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(credentials),
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(
-        errorData.message || `Error ${response.status}: ${response.statusText}`
-      )
-    }
-
-    const data = await response.json()
     console.log("🔍 RESPUESTA COMPLETA DEL BACKEND:", data)
 
     // ✅ BUSCAR TOKEN EN EL ORDEN CORRECTO (access_Token es el que viene de tu API)
@@ -101,22 +171,15 @@ class AuthService {
   }
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseURL}/auth/register`, {
+    console.log("📤 REGISTRANDO CON:", userData)
+    console.log("📤 URL REGISTER:", getApiUrl("/auth/register")) // ← URLs dinámicas
+
+    const data = await this.makeRequest("/auth/register", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(userData),
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(
-        errorData.message || `Error ${response.status}: ${response.statusText}`
-      )
-    }
-
-    const data = await response.json()
+    console.log("✅ REGISTER RESPONSE:", data)
 
     // ✅ APLICAR LA MISMA LÓGICA QUE EN LOGIN
     const token =
@@ -127,13 +190,21 @@ class AuthService {
       user = this.decodeJWT(token)
     }
 
-    if (token) this.saveToken(token)
-    if (user) this.saveUser(user)
+    if (!token) {
+      throw new Error("No se recibió token de autenticación")
+    }
+
+    if (!user) {
+      throw new Error("No se recibieron datos del usuario")
+    }
+
+    this.saveToken(token)
+    this.saveUser(user)
 
     return { token, user }
   }
 
-  // ✅ FUNCIÓN LOGOUT
+  // ✅ FUNCIÓN LOGOUT CON URLs DINÁMICAS
   async logout(): Promise<void> {
     const token = this.getToken()
 
@@ -141,21 +212,17 @@ class AuthService {
       try {
         console.log("🔄 Cerrando sesión en el backend...")
 
-        const response = await fetch(`${this.baseURL}/auth/logout`, {
+        await this.makeRequest("/auth/logout", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
           },
         })
 
-        if (response.ok) {
-          console.log("✅ Sesión cerrada correctamente en el backend")
-        } else {
-          console.warn("⚠️ Error cerrando sesión en backend:", response.status)
-        }
+        console.log("✅ Sesión cerrada correctamente en el backend")
       } catch (error) {
-        console.error("❌ Error en logout del servidor:", error)
+        console.warn("⚠️ Error cerrando sesión en backend:", error)
+        // No lanzar error aquí, seguir con la limpieza local
       }
     }
 
@@ -205,11 +272,13 @@ class AuthService {
     }
   }
 
-  // ✅ MÉTODOS DE STORAGE
+  // ✅ MÉTODOS DE STORAGE (mejorados)
   saveToken(token: string): void {
     try {
-      localStorage.setItem("token", token)
-      console.log("✅ Token guardado en localStorage")
+      if (typeof window !== "undefined") {
+        localStorage.setItem("token", token)
+        console.log("✅ Token guardado en localStorage")
+      }
     } catch (error) {
       console.error("Error saving token:", error)
     }
@@ -217,6 +286,8 @@ class AuthService {
 
   getToken(): string | null {
     try {
+      if (typeof window === "undefined") return null
+
       const token = localStorage.getItem("token")
       if (!token || token === "undefined" || token === "null") {
         return null
@@ -230,7 +301,10 @@ class AuthService {
 
   removeToken(): void {
     try {
-      localStorage.removeItem("token")
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token")
+        localStorage.removeItem("authToken") // Limpiar también authToken si existe
+      }
     } catch (error) {
       console.error("Error removing token:", error)
     }
@@ -238,12 +312,14 @@ class AuthService {
 
   saveUser(user: any): void {
     try {
-      localStorage.setItem("user", JSON.stringify(user))
-      console.log("✅ Usuario guardado en localStorage:", {
-        id: user.id,
-        email: user.email,
-        isAdmin: user.isAdmin,
-      })
+      if (typeof window !== "undefined") {
+        localStorage.setItem("user", JSON.stringify(user))
+        console.log("✅ Usuario guardado en localStorage:", {
+          id: user.id,
+          email: user.email,
+          isAdmin: user.isAdmin,
+        })
+      }
     } catch (error) {
       console.error("Error saving user:", error)
     }
@@ -251,6 +327,8 @@ class AuthService {
 
   getUser(): any | null {
     try {
+      if (typeof window === "undefined") return null
+
       const userData = localStorage.getItem("user")
 
       if (!userData || userData === "undefined" || userData === "null") {
@@ -277,7 +355,9 @@ class AuthService {
 
   removeUser(): void {
     try {
-      localStorage.removeItem("user")
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("user")
+      }
     } catch (error) {
       console.error("Error removing user:", error)
     }
