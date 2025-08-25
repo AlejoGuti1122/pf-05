@@ -133,7 +133,7 @@ class FiltersService {
       }
 
       // ✅ USAR URLs DINÁMICAS
-      const endpoint = `/products/seeder${
+      const endpoint = `/products${
         queryParams.toString() ? `?${queryParams.toString()}` : ""
       }`
       const url = getApiUrl(endpoint)

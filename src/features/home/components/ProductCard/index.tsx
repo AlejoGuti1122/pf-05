@@ -32,30 +32,25 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    console.log("🎯 handleAddToCart ejecutado para:", product.name)
-    console.log("🎯 isInStock:", isInStock)
-    console.log("🎯 isLoading:", isLoading)
 
     if (isInStock && !isLoading) {
       try {
-        console.log("🎯 Entrando al try block")
-        // Generar un ID único basado en las propiedades del producto
-        const productId =
-          `${product.brand}-${product.model}-${product.year}-${product.engine}`
-            .toLowerCase()
-            .replace(/\s+/g, "-")
+        // ✅ Usar el ID real del producto que viene del backend
+        const productId = product.id
 
-        console.log("🎯 ProductId generado:", productId)
-        console.log("🎯 Llamando addItem...")
+        if (!productId) {
+          console.error("❌ Producto sin ID válido:", product)
+          return
+        }
 
         await addItem({
-          productId: productId,
+          productId: productId, // ✅ ID real del backend
           quantity: 1,
         })
 
-        console.log("🎯 addItem completado")
+        console.log("✅ Producto agregado al carrito:", product.name)
       } catch (error) {
-        console.error("🎯 Error en handleAddToCart:", error)
+        console.error("❌ Error en handleAddToCart:", error)
       }
     } else {
       console.log(
