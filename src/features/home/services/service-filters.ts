@@ -108,6 +108,10 @@ class FiltersService {
   }
 
   // ✅ MEJORADO: Obtener productos con filtros y URLs dinámicas
+  // Reemplaza el método getProducts() en tu filtersService con esta versión mejorada:
+
+  // Reemplaza el método getProducts() en tu filtersService con esta versión mejorada:
+
   async getProducts(
     params: ExtendedProductQueryParams = {}
   ): Promise<ProductResponse[]> {
@@ -129,7 +133,7 @@ class FiltersService {
       }
 
       // ✅ USAR URLs DINÁMICAS
-      const endpoint = `/products${
+      const endpoint = `/products/seeder${
         queryParams.toString() ? `?${queryParams.toString()}` : ""
       }`
       const url = getApiUrl(endpoint)
@@ -143,6 +147,10 @@ class FiltersService {
       })
 
       console.log("📡 Products response status:", response.status)
+      console.log(
+        "📡 Products response headers:",
+        response.headers.get("content-type")
+      )
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -156,6 +164,11 @@ class FiltersService {
 
           throw new Error(`Parámetros inválidos: ${message}`)
         }
+        if (response.status === 404) {
+          throw new Error(
+            "Endpoint /products/seeder no encontrado. Verifica que esté disponible en el backend."
+          )
+        }
         if (response.status >= 500) {
           throw new Error("Error del servidor. Intenta de nuevo más tarde.")
         }
@@ -166,7 +179,26 @@ class FiltersService {
         )
       }
 
-      const data = await response.json()
+      // ✅ VERIFICAR SI LA RESPUESTA TIENE CONTENIDO ANTES DE PARSEAR JSON
+      const responseText = await response.text()
+      console.log("📡 Response text length:", responseText.length)
+      console.log("📡 Response preview:", responseText.substring(0, 200))
+
+      if (!responseText || responseText.trim().length === 0) {
+        console.warn("⚠️ Respuesta vacía del servidor")
+        return []
+      }
+
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (parseError) {
+        console.error("❌ Error parsing JSON:", parseError)
+        console.error("❌ Response text was:", responseText)
+        const errorMessage =
+          parseError instanceof Error ? parseError.message : "Error desconocido"
+        throw new Error(`Respuesta inválida del servidor: ${errorMessage}`)
+      }
 
       // ✅ MANEJAR DIFERENTES FORMATOS DE RESPUESTA
       let products: ProductResponse[] = []
