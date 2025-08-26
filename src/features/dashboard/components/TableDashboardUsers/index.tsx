@@ -1,150 +1,21 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import React, { JSX, useState } from 'react';
-import { Search, User, Mail, Calendar, MoreHorizontal, Plus, RefreshCw, AlertCircle, Trash2, Power } from 'lucide-react';
-
-// Importaciones que usarías en tu proyecto real:
-// import { useUsers } from '../hooks/useUsers';
-// import { UserStatus, UserRole, User as UserType } from '../types/user';
-
-// Tipos locales para el ejemplo - REEMPLAZAR por los imports reales
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: 'Admin' | 'Moderator' | 'User';
-  status: 'active' | 'inactive' | 'pending';
-  createdAt: string;
-  avatar: string | null;
-}
-
-type UserStatus = 'active' | 'inactive' | 'pending';
-type UserRole = 'Admin' | 'Moderator' | 'User';
-
-interface UseUsersReturn {
-  users: User[];
-  loading: boolean;
-  error: string | null;
-  totalUsers: number;
-  currentPage: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-  searchUsers: (term: string) => Promise<void>;
-  refreshUsers: () => Promise<void>;
-  deleteUser: (id: number) => Promise<boolean>;
-  toggleUserStatus: (id: number, status: UserStatus) => Promise<boolean>;
-  setPage: (page: number) => void;
-  clearError: () => void;
-}
-
-interface UseUsersOptions {
-  initialParams?: {
-    limit?: number;
-  };
-  autoFetch?: boolean;
-}
-
-// Mock del hook para el ejemplo - REEMPLAZAR por el import real
-const useUsers = (options: UseUsersOptions = {}): UseUsersReturn => {
-  const [localUsers, setLocalUsers] = useState<User[]>([
-    {
-      id: 1,
-      name: "Ana García",
-      email: "ana.garcia@example.com",
-      role: "Admin",
-      status: "active",
-      createdAt: "2024-01-15T00:00:00.000Z",
-      avatar: null
-    },
-    {
-      id: 2,
-      name: "Carlos López",
-      email: "carlos.lopez@example.com",
-      role: "User",
-      status: "active",
-      createdAt: "2024-02-20T00:00:00.000Z",
-      avatar: null
-    },
-    {
-      id: 3,
-      name: "María Rodríguez",
-      email: "maria.rodriguez@example.com",
-      role: "Moderator",
-      status: "inactive",
-      createdAt: "2024-01-08T00:00:00.000Z",
-      avatar: null
-    },
-    {
-      id: 4,
-      name: "Pedro Martín",
-      email: "pedro.martin@example.com",
-      role: "User",
-      status: "pending",
-      createdAt: "2024-03-01T00:00:00.000Z",
-      avatar: null
-    }
-  ]);
-  
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-
-  // Simular filtrado local
-  const filteredUsers = localUsers.filter((user: User) =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  return {
-    users: filteredUsers,
-    loading,
-    error,
-    totalUsers: localUsers.length,
-    currentPage: 1,
-    totalPages: 1,
-    hasNextPage: false,
-    hasPrevPage: false,
-    searchUsers: async (term: string): Promise<void> => {
-      setLoading(true);
-      setSearchTerm(term);
-      // Simular delay de API
-      setTimeout(() => setLoading(false), 500);
-    },
-    refreshUsers: async (): Promise<void> => {
-      setLoading(true);
-      setError(null);
-      setTimeout(() => {
-        console.log('🔄 Refrescando usuarios desde el backend...');
-        setLoading(false);
-      }, 1000);
-    },
-    deleteUser: async (id: number): Promise<boolean> => {
-      setLoading(true);
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          setLocalUsers((prev: User[]) => prev.filter((user: User) => user.id !== id));
-          setLoading(false);
-          console.log('🗑️ Usuario eliminado:', id);
-          resolve(true);
-        }, 800);
-      });
-    },
-    toggleUserStatus: async (id: number, newStatus: UserStatus): Promise<boolean> => {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          setLocalUsers((prev: User[]) => prev.map((user: User) => 
-            user.id === id ? { ...user, status: newStatus } : user
-          ));
-          console.log('⚡ Estado cambiado:', id, newStatus);
-          resolve(true);
-        }, 600);
-      });
-    },
-    setPage: (page: number): void => console.log('📄 Página:', page),
-    clearError: (): void => setError(null)
-  };
-};
+import React, { JSX, useState } from "react"
+import {
+  Search,
+  User as UserIcon,
+  Mail,
+  Calendar,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  AlertCircle,
+  Trash2,
+  Power,
+} from "lucide-react"
+import { UserRole, UserStatus, User } from "../../types/table-users"
+import useUsers from "../../hooks/useTableUsers"
 
 const UsersTable: React.FC = () => {
   const {
@@ -161,111 +32,159 @@ const UsersTable: React.FC = () => {
     deleteUser,
     toggleUserStatus,
     setPage,
-    clearError
+    clearError,
   } = useUsers({
     initialParams: { limit: 10 },
-    autoFetch: true
-  });
+    autoFetch: true,
+  })
 
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
+  const [searchTerm, setSearchTerm] = useState<string>("")
 
   // Manejar búsqueda con debounce
   const handleSearch = async (term: string): Promise<void> => {
-    setSearchTerm(term);
+    setSearchTerm(term)
     if (term.length > 2 || term.length === 0) {
-      await searchUsers(term);
+      await searchUsers(term)
     }
-  };
+  }
 
   // Manejar eliminación de usuario
   const handleDeleteUser = async (userId: number): Promise<void> => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
-      return;
+    if (
+      !window.confirm("¿Estás seguro de que quieres eliminar este usuario?")
+    ) {
+      return
     }
-    
-    setActionLoading(userId);
+
+    setActionLoading(userId)
     try {
-      const success = await deleteUser(userId);
+      const success = await deleteUser(userId)
       if (success) {
-        console.log('✅ Usuario eliminado exitosamente');
+        console.log("✅ Usuario eliminado exitosamente")
       }
     } catch (err) {
-      console.error('❌ Error al eliminar usuario:', err);
+      console.error("❌ Error al eliminar usuario:", err)
     } finally {
-      setActionLoading(null);
+      setActionLoading(null)
     }
-  };
+  }
 
   // Manejar cambio de estado
-  const handleToggleStatus = async (userId: number, currentStatus: UserStatus): Promise<void> => {
-    const newStatus: UserStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    setActionLoading(userId);
-    
+  const handleToggleStatus = async (
+    userId: number,
+    currentStatus: UserStatus
+  ): Promise<void> => {
+    // Lógica más completa para manejar todos los estados
+    let newStatus: UserStatus
+
+    switch (currentStatus) {
+      case "active":
+        newStatus = "inactive"
+        break
+      case "inactive":
+      case "suspended":
+        newStatus = "active"
+        break
+      case "pending":
+        newStatus = "active"
+        break
+      default:
+        newStatus = "active"
+    }
+
+    setActionLoading(userId)
+
     try {
-      const success = await toggleUserStatus(userId, newStatus);
+      const success = await toggleUserStatus(userId, newStatus)
       if (success) {
-        console.log('✅ Estado actualizado exitosamente');
+        console.log("✅ Estado actualizado exitosamente")
       }
     } catch (err) {
-      console.error('❌ Error al cambiar estado:', err);
+      console.error("❌ Error al cambiar estado:", err)
     } finally {
-      setActionLoading(null);
+      setActionLoading(null)
     }
-  };
+  }
+
+  // Define ApiUser type based on expected user properties
+  type ApiUser = {
+    id: number
+    name: string
+    email: string
+    isAdmin?: boolean
+    isSuperAdmin?: boolean
+    isBanned?: boolean
+    isVerified?: boolean
+    status?: UserStatus
+    // Add other fields as needed
+  }
+
+  // Determinar estado basado en isAdmin/isBanned
+  const getUserStatus = (user: ApiUser) => {
+    if (user.isBanned) return "banned"
+    if (user.isVerified) return "verified"
+    if (user.isAdmin || user.isSuperAdmin) return "admin"
+    return "user"
+  }
 
   // Componente de badge para el estado
-  const getStatusBadge = (status: UserStatus): JSX.Element => {
-    const statusStyles: Record<UserStatus, string> = {
-      active: 'bg-green-100 text-green-800 border-green-200',
-      inactive: 'bg-red-100 text-red-800 border-red-200',
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200'
-    };
-    
-    const style = statusStyles[status] || statusStyles.pending;
-    const labels: Record<UserStatus, string> = {
-      active: 'Activo',
-      inactive: 'Inactivo',
-      pending: 'Pendiente'
-    };
-    
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${style}`}>
-        {labels[status] || 'Pendiente'}
-      </span>
-    );
-  };
+  const getStatusBadge = (user: ApiUser): JSX.Element => {
+    const status = getUserStatus(user)
+    const statusStyles = {
+      banned: "bg-red-100 text-red-800 border-red-200",
+      verified: "bg-green-100 text-green-800 border-green-200",
+      admin: "bg-purple-100 text-purple-800 border-purple-200",
+      user: "bg-gray-100 text-gray-800 border-gray-200",
+    }
 
-  // Componente de badge para el rol
-  const getRoleBadge = (role: UserRole): JSX.Element => {
-    const roleStyles: Record<UserRole, string> = {
-      Admin: 'bg-purple-100 text-purple-800 border-purple-200',
-      Moderator: 'bg-blue-100 text-blue-800 border-blue-200',
-      User: 'bg-gray-100 text-gray-800 border-gray-200'
-    };
-    
-    const style = roleStyles[role] || roleStyles.User;
-    
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${style}`}>
-        {role}
-      </span>
-    );
-  };
+    const labels = {
+      banned: "Baneado",
+      verified: "Verificado",
+      admin: "Admin",
+      user: "Usuario",
+    }
 
-  // Formatear fecha
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+    return (
+      <span
+        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusStyles[status]}`}
+      >
+        {labels[status]}
+      </span>
+    )
+  }
+
+  // Componente de badge para el rol basado en los datos reales del backend
+  const getRoleBadge = (user: any): JSX.Element => {
+    let roleText = "Usuario"
+    let roleStyle = "bg-gray-100 text-gray-800 border-gray-200"
+
+    if (user.isSuperAdmin) {
+      roleText = "Super Admin"
+      roleStyle = "bg-red-100 text-red-800 border-red-200"
+    } else if (user.isAdmin) {
+      roleText = "Admin"
+      roleStyle = "bg-purple-100 text-purple-800 border-purple-200"
+    }
+
+    return (
+      <span
+        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${roleStyle}`}
+      >
+        {roleText}
+      </span>
+    )
+  }
+
+  // Eliminar funciones que ya no se usan
+  // const getStatusBadge - ELIMINADO
+  // const getUserStatus - ELIMINADO
+  // const formatDate - ELIMINADO
 
   // Props para el componente de error
   interface ErrorMessageProps {
-    message: string;
-    onClose: () => void;
+    message: string
+    onClose: () => void
   }
 
   // Componente de error
@@ -292,7 +211,18 @@ const UsersTable: React.FC = () => {
         </div>
       </div>
     </div>
-  );
+  )
+
+  // Debug temporal - agrega esto para ver qué está pasando
+  React.useEffect(() => {
+    console.log("🔍 Estado del componente:", {
+      users: users.length,
+      loading,
+      error,
+      totalUsers,
+      currentPage,
+    })
+  }, [users, loading, error, totalUsers, currentPage])
 
   if (loading && users.length === 0) {
     return (
@@ -307,7 +237,7 @@ const UsersTable: React.FC = () => {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -317,7 +247,7 @@ const UsersTable: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <User className="h-5 w-5" />
+                <UserIcon className="h-5 w-5" />
                 Gestión de Usuarios
               </h3>
               <p className="text-sm text-gray-500 mt-1">
@@ -326,7 +256,7 @@ const UsersTable: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="p-6">
           {/* Barra de búsqueda y acciones */}
           <div className="flex items-center space-x-4 mb-6">
@@ -336,7 +266,9 @@ const UsersTable: React.FC = () => {
                 type="text"
                 placeholder="Buscar usuarios por nombre o email..."
                 value={searchTerm}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  handleSearch(e.target.value)
+                }
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={loading}
               />
@@ -346,7 +278,9 @@ const UsersTable: React.FC = () => {
               disabled={loading}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+              />
               Actualizar
             </button>
             <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
@@ -356,7 +290,24 @@ const UsersTable: React.FC = () => {
           </div>
 
           {/* Mostrar error si existe */}
-          {error && <ErrorMessage message={error} onClose={clearError} />}
+          {error && (
+            <ErrorMessage
+              message={error}
+              onClose={clearError}
+            />
+          )}
+
+          {/* Debug info temporal - elimínalo después */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Debug:</strong> API URL:{" "}
+                {process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}{" "}
+                | Usuarios cargados: {users.length} | Loading:{" "}
+                {loading.toString()} | Error: {error || "ninguno"}
+              </p>
+            </div>
+          )}
 
           {/* Tabla de usuarios */}
           <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
@@ -372,12 +323,6 @@ const UsersTable: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Rol
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha de Registro
-                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
@@ -386,18 +331,26 @@ const UsersTable: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
-                      {loading ? 'Buscando usuarios...' : 'No se encontraron usuarios'}
+                    <td
+                      colSpan={6}
+                      className="px-6 py-8 text-center text-sm text-gray-500"
+                    >
+                      {loading
+                        ? "Buscando usuarios..."
+                        : "No se encontraron usuarios"}
                     </td>
                   </tr>
                 ) : (
-                  users.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                  users.map((user: any) => (
+                    <tr
+                      key={user.id}
+                      className="hover:bg-gray-50"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
                             <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <User className="h-5 w-5 text-gray-500" />
+                              <UserIcon className="h-5 w-5 text-gray-500" />
                             </div>
                           </div>
                           <div className="ml-4">
@@ -417,36 +370,12 @@ const UsersTable: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {getRoleBadge(user.role)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(user.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                          {formatDate(user.createdAt)}
-                        </div>
+                        {getRoleBadge(user)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end space-x-2">
                           {/* Botón cambiar estado */}
-                          <button
-                            onClick={() => handleToggleStatus(user.id, user.status)}
-                            disabled={actionLoading === user.id}
-                            className="inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                            title={user.status === 'active' ? 'Desactivar usuario' : 'Activar usuario'}
-                          >
-                            {actionLoading === user.id ? (
-                              <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-700"></div>
-                            ) : (
-                              <>
-                                <Power className="h-3 w-3 mr-1" />
-                                {user.status === 'active' ? 'Desactivar' : 'Activar'}
-                              </>
-                            )}
-                          </button>
-                          
+
                           {/* Botón eliminar */}
                           <button
                             onClick={() => handleDeleteUser(user.id)}
@@ -457,7 +386,7 @@ const UsersTable: React.FC = () => {
                             <Trash2 className="h-3 w-3 mr-1" />
                             Eliminar
                           </button>
-                          
+
                           {/* Menú más opciones */}
                           <button className="inline-flex items-center p-2 border border-gray-300 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                             <MoreHorizontal className="h-4 w-4" />
@@ -499,7 +428,7 @@ const UsersTable: React.FC = () => {
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default UsersTable;
+export default UsersTable
