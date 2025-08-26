@@ -18,7 +18,6 @@ class ApiClient {
   private baseURL: string
 
   constructor() {
-    // Usar configuración dinámica como ProductService
     this.baseURL = getApiUrl()
 
     if (typeof window !== "undefined") {
@@ -35,41 +34,41 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
 
+    // Obtener token antes de construir headers
+    const token = authService.getToken()
+
     const config: RequestInit = {
+      credentials: "include",
+      ...options,
       headers: {
         "Content-Type": "application/json",
+        // Si hay token, agregar Authorization header
+        ...(token && { Authorization: `Bearer ${token}` }),
+        // Agregar headers adicionales si vienen en options
         ...options.headers,
       },
-      credentials: "include", // Agregar credentials como ProductService
-      ...options,
-    }
-
-    // Usar authService centralizado en lugar de localStorage directo
-    const token = authService.getToken()
-    if (token) {
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${token}`,
-      }
-    } else {
-      console.warn(
-        "No token found - request might fail for protected endpoints"
-      )
     }
 
     if (typeof window !== "undefined") {
       console.log("Making request to:", url)
       console.log("Has token:", !!token)
       console.log("User is admin:", authService.isAdmin())
+      console.log("Headers being sent:", config.headers)
     }
 
     try {
       const response = await fetch(url, config)
 
       if (!response.ok) {
+        console.error("Response not OK:", {
+          status: response.status,
+          statusText: response.statusText,
+          url: url,
+          headers: config.headers,
+        })
+
         const errorData = await response.json().catch(() => ({}))
 
-        // Mejor manejo de errores específicos como ProductService
         if (response.status === 401) {
           console.error(
             "Authentication failed - redirecting to login might be needed"
@@ -80,6 +79,8 @@ class ApiClient {
           console.error(
             "Access forbidden - user might not have admin permissions"
           )
+          console.error("Token present:", !!token)
+          console.error("Is admin:", authService.isAdmin())
           throw new Error("No tienes permisos para acceder a las órdenes.")
         }
         if (response.status === 404) {
@@ -143,18 +144,6 @@ export class OrderService {
   static async getOrders(
     params: GetOrdersParams = {}
   ): Promise<OrdersResponse> {
-    const queryParams: Record<string, string> = {}
-
-    if (params.page) queryParams.page = params.page.toString()
-    if (params.limit) queryParams.limit = params.limit.toString()
-    if (params.search) queryParams.search = params.search
-    if (params.status) queryParams.status = params.status
-    if (params.userId) queryParams.userId = params.userId
-    if (params.dateFrom) queryParams.dateFrom = params.dateFrom
-    if (params.dateTo) queryParams.dateTo = params.dateTo
-    if (params.sortBy) queryParams.sortBy = params.sortBy
-    if (params.sortOrder) queryParams.sortOrder = params.sortOrder
-
     // Verificar autenticación antes de hacer la petición
     if (!authService.isAuthenticated()) {
       throw new Error("Debes estar autenticado para ver las órdenes")
@@ -166,7 +155,15 @@ export class OrderService {
       )
     }
 
-    return apiClient.get<OrdersResponse>("/orders", queryParams)
+    // DEBUG: Verificar datos de auth
+    console.log("Auth check:", {
+      isAuthenticated: authService.isAuthenticated(),
+      isAdmin: authService.isAdmin(),
+      hasToken: !!authService.getToken(),
+    })
+
+    // Llamar sin parámetros como necesita tu backend
+    return apiClient.get<OrdersResponse>("/orders")
   }
 
   /**
