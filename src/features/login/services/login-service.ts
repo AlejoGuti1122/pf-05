@@ -4,25 +4,25 @@
 import {
   AuthResponse,
   LoginRequest,
-  RegisterRequest,
+  RegisterData, // Cambio aquí: RegisterData en lugar de RegisterRequest
 } from "@/features/register/types/register"
-import { getApiUrl } from "@/config/urls" // ← IMPORTAR CONFIGURACIÓN DINÁMICA
+import { getApiUrl } from "@/config/urls" // Importar configuración dinámica
 
 class AuthService {
   private baseURL: string
 
   constructor() {
-    // ✅ CORREGIDO: Usar configuración dinámica en lugar de hardcoded
+    // Usar configuración dinámica en lugar de hardcoded
     this.baseURL = getApiUrl() // Esto dará la URL correcta según el entorno
 
-    // ✅ SOLO LOG EN CLIENTE (Next.js best practice)
+    // Solo log en cliente (Next.js best practice)
     if (typeof window !== "undefined") {
       console.log("🌐 AuthService initialized with baseURL:", this.baseURL)
       console.log("🔧 Environment:", process.env.NODE_ENV)
     }
   }
 
-  // ✅ FUNCIÓN PARA DECODIFICAR JWT
+  // Función para decodificar JWT
   private decodeJWT(token: string): any | null {
     try {
       const parts = token.split(".")
@@ -44,12 +44,12 @@ class AuthService {
     }
   }
 
-  // ✅ MÉTODO HELPER PARA FETCH CON MEJOR MANEJO DE ERRORES
+  // Método helper para fetch con mejor manejo de errores
   private async makeRequest(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<any> {
-    // ✅ USAR getApiUrl PARA CADA REQUEST (URLs dinámicas)
+    // Usar getApiUrl para cada request (URLs dinámicas)
     const fullUrl = getApiUrl(endpoint)
 
     if (typeof window !== "undefined") {
@@ -58,9 +58,16 @@ class AuthService {
     }
 
     try {
+      // Solo agregar headers por defecto si no es FormData
+      const defaultHeaders: Record<string, string> = {}
+      
+      if (!(options.body instanceof FormData)) {
+        defaultHeaders["Content-Type"] = "application/json"
+      }
+
       const response = await fetch(fullUrl, {
         headers: {
-          "Content-Type": "application/json",
+          ...defaultHeaders,
           ...options.headers,
         },
         credentials: "include", // Para cookies si las usas
@@ -114,7 +121,7 @@ class AuthService {
 
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     console.log("📤 DATOS QUE ESTOY ENVIANDO:", credentials)
-    console.log("📤 URL COMPLETA:", getApiUrl("/auth/signin")) // ← URLs dinámicas
+    console.log("📤 URL COMPLETA:", getApiUrl("/auth/signin")) // URLs dinámicas
 
     const data = await this.makeRequest("/auth/signin", {
       method: "POST",
@@ -123,7 +130,7 @@ class AuthService {
 
     console.log("🔍 RESPUESTA COMPLETA DEL BACKEND:", data)
 
-    // ✅ BUSCAR TOKEN EN EL ORDEN CORRECTO (access_Token es el que viene de tu API)
+    // Buscar token en el orden correcto (access_Token es el que viene de tu API)
     const token =
       data.access_Token || data.accessToken || data.token || data.access_token
     console.log("🔍 TOKEN EXTRAÍDO:", token ? "TOKEN_FOUND" : "NO_TOKEN")
@@ -131,13 +138,13 @@ class AuthService {
     let user = data.user || null
     console.log("🔍 USER DESDE RESPONSE:", user)
 
-    // ✅ SI NO VIENE USER, LO DECODIFICAMOS DEL TOKEN
+    // Si no viene user, lo decodificamos del token
     if (!user && token) {
       user = this.decodeJWT(token)
       console.log("🔍 USER DECODIFICADO DEL JWT:", user)
     }
 
-    // ✅ VALIDAR QUE TENEMOS LOS DATOS NECESARIOS
+    // Validar que tenemos los datos necesarios
     if (!token) {
       console.error("❌ NO SE ENCONTRÓ TOKEN EN LA RESPUESTA")
       throw new Error("No se recibió token de autenticación")
@@ -148,7 +155,7 @@ class AuthService {
       throw new Error("No se recibieron datos del usuario")
     }
 
-    // ✅ GUARDAR TOKEN Y USER
+    // Guardar token y user
     this.saveToken(token)
     this.saveUser(user)
 
@@ -161,7 +168,7 @@ class AuthService {
       isSuperAdmin: user.isSuperAdmin,
     })
 
-    // ✅ RETORNAR EN EL FORMATO QUE ESPERA TU HOOK
+    // Retornar en el formato que espera tu hook
     const result: AuthResponse = {
       token,
       user,
@@ -170,18 +177,38 @@ class AuthService {
     return result
   }
 
-  async register(userData: RegisterRequest): Promise<AuthResponse> {
+  async register(userData: RegisterData): Promise<AuthResponse> {
     console.log("📤 REGISTRANDO CON:", userData)
-    console.log("📤 URL REGISTER:", getApiUrl("/auth/register")) // ← URLs dinámicas
+    console.log("📤 URL REGISTER:", getApiUrl("/auth/register")) // URLs dinámicas
 
-    const data = await this.makeRequest("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(userData),
-    })
+    let requestOptions: RequestInit
+
+    if (userData instanceof FormData) {
+      // Para FormData, no usar JSON.stringify ni agregar Content-Type
+      requestOptions = {
+        method: "POST",
+        body: userData, // FormData directamente
+      }
+      console.log("📤 Enviando FormData con archivo")
+      
+      // Debug para FormData
+      for (const [key, value] of userData.entries()) {
+        console.log(`FormData ${key}:`, typeof value === 'object' ? value.constructor.name : value)
+      }
+    } else {
+      // Para objeto regular usar JSON
+      requestOptions = {
+        method: "POST",
+        body: JSON.stringify(userData),
+      }
+      console.log("📤 Enviando JSON sin archivo")
+    }
+
+    const data = await this.makeRequest("/auth/register", requestOptions)
 
     console.log("✅ REGISTER RESPONSE:", data)
 
-    // ✅ APLICAR LA MISMA LÓGICA QUE EN LOGIN
+    // Aplicar la misma lógica que en login
     const token =
       data.access_Token || data.accessToken || data.token || data.access_token
     let user = data.user || null
@@ -204,7 +231,7 @@ class AuthService {
     return { token, user }
   }
 
-  // ✅ FUNCIÓN LOGOUT CON URLs DINÁMICAS
+  // Función logout con URLs dinámicas
   async logout(): Promise<void> {
     const token = this.getToken()
 
@@ -226,13 +253,13 @@ class AuthService {
       }
     }
 
-    // ✅ Limpiar datos locales SIEMPRE
+    // Limpiar datos locales siempre
     this.removeToken()
     this.removeUser()
     console.log("🧹 Datos locales limpiados")
   }
 
-  // ✅ MÉTODO MEJORADO PARA VERIFICAR AUTENTICACIÓN
+  // Método mejorado para verificar autenticación
   isAuthenticated(): boolean {
     const token = this.getToken()
     const user = this.getUser()
@@ -272,7 +299,7 @@ class AuthService {
     }
   }
 
-  // ✅ MÉTODOS DE STORAGE (mejorados)
+  // Métodos de storage (mejorados)
   saveToken(token: string): void {
     try {
       if (typeof window !== "undefined") {
@@ -356,14 +383,14 @@ class AuthService {
   removeUser(): void {
     try {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("user")
+        localStorage.removeUser("user")
       }
     } catch (error) {
       console.error("Error removing user:", error)
     }
   }
 
-  // ✅ MÉTODO AUXILIAR PARA VERIFICAR SI ES ADMIN
+  // Método auxiliar para verificar si es admin
   isAdmin(): boolean {
     try {
       const user = this.getUser()

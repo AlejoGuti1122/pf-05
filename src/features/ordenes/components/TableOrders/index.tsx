@@ -10,247 +10,12 @@ import {
   MoreHorizontal,
   RefreshCw,
   AlertCircle,
-  Filter,
   Eye,
+  Check,
 } from "lucide-react"
-
-// Importaciones que usarías en tu proyecto real:
-// import { useOrders } from '../hooks/useOrders';
-// import { OrderStatus, Order } from '../types/order';
-
-// Tipos actualizados para coincidir con tu API real
-interface OrderItem {
-  id?: string
-  productId?: string
-  productName?: string
-  productCode?: string
-  quantity?: number
-  unitPrice?: number
-  totalPrice?: number
-}
-
-interface OrderSummary {
-  subtotal: number
-  discount: number
-  tax: number
-  total: number
-  currency: string
-  invalidItemsCount: number
-  subTotal: number // API devuelve ambos
-  grandTotal: number
-}
-
-interface Order {
-  id: string // UUID como en tu API
-  userId: string // UUID como en tu API
-  items: OrderItem[]
-  summary: OrderSummary
-  // Campos adicionales que podrían venir
-  status?: OrderStatus
-  createdAt?: string
-  updatedAt?: string
-  orderNumber?: string
-  customer?: {
-    id: string
-    name: string
-    email: string
-    phone?: string
-  }
-}
-
-type OrderStatus =
-  | "En Preparacion"
-  | "Aprobada"
-  | "En Transito"
-  | "Entregada"
-  | "Cancelada"
-
-// Mock actualizado para coincidir con tu estructura real
-const useOrders = (p0: {
-  initialParams: { limit: number }
-  autoFetch: boolean
-}) => {
-  const [localOrders, setLocalOrders] = useState<Order[]>([
-    {
-      id: "29404e9e-bdfc-4449-ab48-af1aa50f277a",
-      userId: "37b97647-6272-40dd-ab25-b77927aee18a",
-      items: [
-        {
-          id: "item-1",
-          productName: "Filtro de Aceite Honda Civic",
-          productCode: "FO-HC-001",
-          quantity: 2,
-          unitPrice: 25000,
-          totalPrice: 50000,
-        },
-        {
-          id: "item-2",
-          productName: "Pastillas de Freno Delanteras",
-          productCode: "PF-HC-002",
-          quantity: 1,
-          unitPrice: 85000,
-          totalPrice: 85000,
-        },
-      ],
-      summary: {
-        subtotal: 135000,
-        discount: 0,
-        tax: 25650,
-        total: 160650,
-        currency: "COP", // Cambiado de USD a COP
-        invalidItemsCount: 0,
-        subTotal: 135000,
-        grandTotal: 160650,
-      },
-      // Campos opcionales para el display
-      status: "En Preparacion",
-      createdAt: "2024-08-20T10:30:00Z",
-      updatedAt: "2024-08-20T10:30:00Z",
-      orderNumber: "RP-2024-001",
-      customer: {
-        id: "123",
-        name: "Carlos Méndez",
-        email: "carlos@example.com",
-        phone: "+57 300 123 4567",
-      },
-    },
-    {
-      id: "a1b2c3d4-e5f6-4789-9abc-def123456789",
-      userId: "b2c3d4e5-f6g7-4890-9bcd-ef1234567890",
-      items: [], // Orden vacía como tu ejemplo
-      summary: {
-        subtotal: 0,
-        discount: 0,
-        tax: 0,
-        total: 0,
-        currency: "USD",
-        invalidItemsCount: 0,
-        subTotal: 0,
-        grandTotal: 0,
-      },
-      status: "En Preparacion",
-      createdAt: "2024-08-19T14:15:00Z",
-      updatedAt: "2024-08-19T14:15:00Z",
-      orderNumber: "RP-2024-002",
-      customer: {
-        id: "124",
-        name: "Ana Torres",
-        email: "ana.torres@example.com",
-        phone: "+57 310 987 6543",
-      },
-    },
-    {
-      id: "c3d4e5f6-g7h8-4901-9cde-f12345678901",
-      userId: "d4e5f6g7-h8i9-4012-9def-123456789012",
-      items: [
-        {
-          id: "item-3",
-          productName: "Batería 12V Toyota Corolla",
-          productCode: "BAT-TC-003",
-          quantity: 1,
-          unitPrice: 320000,
-          totalPrice: 320000,
-        },
-      ],
-      summary: {
-        subtotal: 320000,
-        discount: 32000,
-        tax: 54720,
-        total: 342720,
-        currency: "COP",
-        invalidItemsCount: 0,
-        subTotal: 320000,
-        grandTotal: 342720,
-      },
-      status: "Aprobada",
-      createdAt: "2024-08-18T09:45:00Z",
-      updatedAt: "2024-08-20T08:30:00Z",
-      orderNumber: "RP-2024-003",
-      customer: {
-        id: "125",
-        name: "Miguel Rodríguez",
-        email: "miguel.r@example.com",
-        phone: "+57 320 456 7890",
-      },
-    },
-  ])
-
-  const [loading, setLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState<string>("")
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | null>(null)
-
-  // Filtrar órdenes
-  const filteredOrders = localOrders.filter((order) => {
-    const matchesSearch =
-      (order.orderNumber ?? "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      order.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer?.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = !statusFilter || order.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
-
-  return {
-    orders: filteredOrders,
-    loading,
-    error,
-    totalOrders: localOrders.length,
-    currentPage: 1,
-    totalPages: 1,
-    hasNextPage: false,
-    hasPrevPage: false,
-    searchOrders: async (term: string) => {
-      setLoading(true)
-      setSearchTerm(term)
-      setTimeout(() => setLoading(false), 500)
-    },
-    filterByStatus: async (status: OrderStatus | null) => {
-      setLoading(true)
-      setStatusFilter(status)
-      setTimeout(() => setLoading(false), 300)
-    },
-    refreshOrders: async () => {
-      setLoading(true)
-      setError(null)
-      setTimeout(() => {
-        console.log("🔄 Refrescando órdenes desde Repustore API...")
-        setLoading(false)
-      }, 1000)
-    },
-    approveOrder: async (orderId: string) => {
-      return new Promise<boolean>((resolve) => {
-        setTimeout(() => {
-          setLocalOrders((prev) =>
-            prev.map((order) =>
-              order.id === orderId
-                ? { ...order, status: "Aprobada" as OrderStatus }
-                : order
-            )
-          )
-          console.log("✅ Orden aprobada:", orderId)
-          resolve(true)
-        }, 600)
-      })
-    },
-    updateOrderStatus: async (orderId: string, status: OrderStatus) => {
-      return new Promise<boolean>((resolve) => {
-        setTimeout(() => {
-          setLocalOrders((prev) =>
-            prev.map((order) =>
-              order.id === orderId ? { ...order, status } : order
-            )
-          )
-          console.log("⚡ Estado actualizado:", orderId, status)
-          resolve(true)
-        }, 600)
-      })
-    },
-    setPage: (page: number) => console.log("📄 Página:", page),
-    clearError: () => setError(null),
-  }
-}
+import { toast } from "sonner"
+import { Order, OrderStatus } from "../../types/orders"
+import useOrders from "../../hooks/useOrders"
 
 const OrdersTable: React.FC = () => {
   const {
@@ -263,19 +28,21 @@ const OrdersTable: React.FC = () => {
     hasNextPage,
     hasPrevPage,
     searchOrders,
-    filterByStatus,
-    refreshOrders,
 
+    refreshOrders,
+    approveOrder,
     setPage,
     clearError,
   } = useOrders({
-    initialParams: { limit: 10 },
+    initialParams: {
+      limit: 10,
+      // status: "En Preparacion",
+    },
     autoFetch: true,
   })
 
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>("")
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | null>(null)
 
   // Manejar búsqueda con debounce
   const handleSearch = async (term: string): Promise<void> => {
@@ -285,17 +52,25 @@ const OrdersTable: React.FC = () => {
     }
   }
 
-  // Manejar filtro por estado
-  const handleStatusFilter = async (
-    status: OrderStatus | null
-  ): Promise<void> => {
-    setStatusFilter(status)
-    await filterByStatus(status)
+  // Manejar aprobación de orden
+  const handleApproveOrder = async (orderId: string): Promise<void> => {
+    setActionLoading(orderId)
+    try {
+      const success = await approveOrder(orderId)
+      if (success) {
+        toast.success("Orden aprobada correctamente")
+      }
+    } catch (error) {
+      console.error("Error aprobando orden:", error)
+      toast.error("Error al aprobar la orden")
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   // Manejar ver detalle de orden
   const handleViewDetails = (orderId: string): void => {
-    console.log("🔍 Ver detalles de orden:", orderId)
+    console.log("Ver detalles de orden:", orderId)
     // Aquí navegarías a la vista de detalle
     // router.push(`/admin/orders/${orderId}`);
   }
@@ -308,6 +83,7 @@ const OrdersTable: React.FC = () => {
       "En Transito": "bg-yellow-100 text-yellow-800 border-yellow-200",
       Entregada: "bg-emerald-100 text-emerald-800 border-emerald-200",
       Cancelada: "bg-red-100 text-red-800 border-red-200",
+      Devuelta: "bg-orange-100 text-orange-800 border-orange-200",
     }
 
     const style = statusStyles[status] || statusStyles["En Preparacion"]
@@ -349,17 +125,14 @@ const OrdersTable: React.FC = () => {
         minute: "2-digit",
         hour12: true,
       })
-      .replace(/\s/g, " ") // Asegurar espacios correctos
-  }
-
-  // Props para el componente de error
-  interface ErrorMessageProps {
-    message: string
-    onClose: () => void
+      .replace(/\s/g, " ")
   }
 
   // Componente de error
-  const ErrorMessage: React.FC<ErrorMessageProps> = ({ message, onClose }) => (
+  const ErrorMessage: React.FC<{ message: string; onClose: () => void }> = ({
+    message,
+    onClose,
+  }) => (
     <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
       <div className="flex">
         <div className="flex-shrink-0">
@@ -389,7 +162,7 @@ const OrdersTable: React.FC = () => {
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            Órdenes de Repustore
+            Órdenes Pendientes de Aprobación
           </h3>
           <p className="text-sm text-gray-500 mt-1">Cargando órdenes...</p>
         </div>
@@ -410,21 +183,21 @@ const OrdersTable: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <Package className="h-5 w-5" />
-                Gestión de Órdenes - Repustore
+                Órdenes Pendientes de Aprobación
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Administra todas las órdenes de repuestos para autos
+                Gestiona las órdenes que requieren aprobación administrativa
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">Total de órdenes</p>
-              <p className="text-2xl font-bold text-gray-900">{totalOrders}</p>
+              <p className="text-sm text-gray-500">Órdenes pendientes</p>
+              <p className="text-2xl font-bold text-blue-600">{totalOrders}</p>
             </div>
           </div>
         </div>
 
         <div className="p-6">
-          {/* Barra de búsqueda y filtros */}
+          {/* Barra de búsqueda */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -438,26 +211,6 @@ const OrdersTable: React.FC = () => {
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={loading}
               />
-            </div>
-
-            {/* Filtro por estado */}
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <select
-                value={statusFilter || ""}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  handleStatusFilter((e.target.value as OrderStatus) || null)
-                }
-                className="pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                disabled={loading}
-              >
-                <option value="">Todos los estados</option>
-                <option value="En Preparacion">En Preparación</option>
-                <option value="Aprobada">Aprobada</option>
-                <option value="En Transito">En Tránsito</option>
-                <option value="Entregada">Entregada</option>
-                <option value="Cancelada">Cancelada</option>
-              </select>
             </div>
 
             <button
@@ -517,7 +270,7 @@ const OrdersTable: React.FC = () => {
                     >
                       {loading
                         ? "Buscando órdenes..."
-                        : "No se encontraron órdenes"}
+                        : "No hay órdenes pendientes de aprobación"}
                     </td>
                   </tr>
                 ) : (
@@ -658,6 +411,25 @@ const OrdersTable: React.FC = () => {
                             Ver Detalle
                           </button>
 
+                          {/* Botón aprobar - solo si está en preparación */}
+                          {order.status === "En Preparacion" && (
+                            <button
+                              onClick={() => handleApproveOrder(order.id)}
+                              disabled={actionLoading === order.id}
+                              className="inline-flex items-center px-3 py-1 border border-green-300 rounded text-xs font-medium text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Aprobar orden"
+                            >
+                              {actionLoading === order.id ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700 mr-1" />
+                              ) : (
+                                <Check className="h-3 w-3 mr-1" />
+                              )}
+                              {actionLoading === order.id
+                                ? "Aprobando..."
+                                : "Aprobar"}
+                            </button>
+                          )}
+
                           {/* Mostrar badge adicional si es carrito vacío */}
                           {order.items.length === 0 && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
@@ -688,7 +460,7 @@ const OrdersTable: React.FC = () => {
           {/* Paginación */}
           <div className="flex items-center justify-between mt-6">
             <div className="text-sm text-gray-500">
-              Mostrando {orders.length} de {totalOrders} órdenes
+              Mostrando {orders.length} de {totalOrders} órdenes pendientes
             </div>
             <div className="flex items-center space-x-2">
               <button

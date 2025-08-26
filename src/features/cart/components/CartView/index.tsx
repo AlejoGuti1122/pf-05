@@ -277,27 +277,16 @@ const ShoppingCart = () => {
                       >
                         <div className="flex flex-col sm:flex-row gap-4">
                           {/* Product Image */}
+                          {/* Product Image */}
                           <div className="flex-shrink-0">
-                            {itemImage ? (
+                            {itemImage && (
                               <Image
                                 src={itemImage}
                                 alt={itemName}
                                 width={80}
                                 height={80}
                                 className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg border border-gray-200"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement
-                                  // Evitar bucle infinito verificando si ya es el placeholder
-                                  if (!target.src.includes("picsum.photos")) {
-                                    target.src =
-                                      "https://picsum.photos/80/80?grayscale&blur=1"
-                                  }
-                                }}
                               />
-                            ) : (
-                              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded-lg border border-gray-200 flex items-center justify-center">
-                                <ShoppingBag className="w-8 h-8 text-gray-400" />
-                              </div>
                             )}
                           </div>
                         </div>

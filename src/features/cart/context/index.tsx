@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // contexts/CartContext.tsx
 
@@ -314,21 +315,28 @@ export function CartProvider({ children }: CartProviderProps) {
   }, [user, handleError])
 
   // ✅ NUEVO: Effect para manejar cambios de autenticación
+  // ✅ MEJORADO: Effect para manejar cambios de autenticación
   useEffect(() => {
+    console.log("🔄 Auth effect - authLoading:", authLoading, "user:", !!user)
+
+    // ✅ CAMBIO: Solo proceder cuando auth haya terminado de cargar
     if (authLoading) {
       console.log("⏳ Auth loading...")
-      return // Esperar a que termine la carga de auth
+      return
     }
 
-    if (user) {
+    // ✅ CAMBIO: Ser explícito sobre los estados
+    if (user && user.email) {
+      // Verificar que realmente tengamos un usuario válido
       console.log("👤 Usuario autenticado - cargando carrito")
       fetchCart()
     } else {
       console.log("👻 Usuario no autenticado - limpiando carrito")
       setCart(null)
       setError(null)
+      setIsLoading(false)
     }
-  }, [user, authLoading, fetchCart])
+  }, [user?.email, authLoading, fetchCart])
 
   // ✅ MEJORADO: Computed values con useMemo
   const itemCount = useMemo(() => {

@@ -1,7 +1,6 @@
-// hooks/useRegister.ts - Versión usando authService
+// hooks/useRegister.ts
 import { useState, useCallback } from "react"
-
-import { RegisterRequest } from "@/features/register/types/register" // <-- IMPORTAR TIPOS
+import { RegisterData } from "@/features/register/types/register" // Cambiar import
 import { authService } from "@/features/login/services/login-service"
 
 interface RegisterResponse {
@@ -20,7 +19,7 @@ interface RegisterResponse {
 }
 
 interface UseRegisterReturn {
-  register: (userData: RegisterRequest) => Promise<RegisterResponse>
+  register: (userData: RegisterData) => Promise<RegisterResponse> // Cambiar tipo
   loading: boolean
   error: string | null
   success: boolean
@@ -33,23 +32,25 @@ const useRegister = (): UseRegisterReturn => {
   const [success, setSuccess] = useState(false)
 
   const register = useCallback(
-    async (userData: RegisterRequest): Promise<RegisterResponse> => {
-      console.log("🔧 Hook userData keys:", Object.keys(userData))
-      console.log("🔧 Hook userData:", JSON.stringify(userData, null, 2))
+    async (userData: RegisterData): Promise<RegisterResponse> => { // Cambiar tipo
+      // Debug diferente para FormData vs objeto
+      if (userData instanceof FormData) {
+        console.log("🔧 Hook recibió FormData con keys:")
+        for (const [key, value] of userData.entries()) {
+          console.log(`${key}:`, typeof value === 'object' ? value.constructor.name : value)
+        }
+      } else {
+        console.log("🔧 Hook userData keys:", Object.keys(userData))
+        console.log("🔧 Hook userData:", JSON.stringify(userData, null, 2))
+      }
 
       setLoading(true)
       setError(null)
       setSuccess(false)
 
       try {
-        // ✅ USAR AUTHSERVICE EN LUGAR DE FETCH DIRECTO
         const result = await authService.register(userData)
         setSuccess(true)
-
-        // ❌ NO GUARDAR TOKEN AUTOMÁTICAMENTE (como antes)
-        // localStorage.setItem("token", result.token)
-        // localStorage.setItem("user", JSON.stringify(result.user))
-
         console.log("✅ Registro exitoso, pero sin auto-login")
         return result
       } catch (err) {

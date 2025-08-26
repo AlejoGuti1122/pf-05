@@ -8,12 +8,17 @@ export interface RegisterRequest {
   name: string
   email: string
   password: string
+  confirmPassword: string
   phone: number
   country: string
   address: string
   city: string
   age: number
+  isAdmin?: boolean
 }
+
+// Tipo para manejar envío con archivo
+export type RegisterData = RegisterRequest | FormData
 
 export interface AuthResponse {
   token: string
@@ -28,6 +33,7 @@ export interface AuthResponse {
     age: number
     isAdmin: boolean
     isSuperAdmin: boolean
+    profilePhoto?: string
   }
 }
 
@@ -42,6 +48,7 @@ export interface User {
   age: number
   isAdmin: boolean
   isSuperAdmin: boolean
+  profilePhoto?: string
 }
 
 export interface LoginFormValues {
@@ -59,4 +66,6 @@ export interface RegisterFormValues {
   address: string
   city: string
   age: string
+  isAdmin?: boolean
+  profilePhoto?: File | null
 }
