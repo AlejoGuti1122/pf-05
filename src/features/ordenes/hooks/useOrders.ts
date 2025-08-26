@@ -76,17 +76,18 @@ export const useOrders = (
   }, [])
 
   // Función principal para obtener órdenes
-  // Función principal para obtener órdenes (con debug)
   const fetchOrders = useCallback(
     async (params: GetOrdersParams = {}) => {
       updateState({ loading: true, error: null })
 
       try {
-        const finalParams = { ...filters, ...params }
+        // Backend espera llamada simple sin parámetros
+        const finalParams = {} // Sin filtros ni parámetros
 
         console.log("🔥 fetchOrders llamado con params:", params)
         console.log("🔥 filters actuales:", filters)
         console.log("🔥 finalParams que se enviarán:", finalParams)
+        console.log("🚨 Llamando backend SIN parámetros")
 
         const response = await OrderService.getOrders(finalParams)
 
@@ -107,7 +108,6 @@ export const useOrders = (
               loading: false,
             })
           }
-          // Caso 2: Array directo de órdenes
           // Caso 2: Array directo de órdenes (ESTE ES TU CASO)
           else if (Array.isArray(response)) {
             console.log("🔥 Array de órdenes recibido:", response)
@@ -121,14 +121,12 @@ export const useOrders = (
               loading: false,
             })
           }
-          // Caso 3: Objeto individual (tu caso actual)
           // Caso 3: Objeto individual
           else if (
             "userId" in response ||
             "id" in response ||
             "summary" in response
           ) {
-            // Casting explícito a unknown primero, luego a any
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const orderObj = response as unknown as any
 
@@ -181,6 +179,7 @@ export const useOrders = (
     },
     [filters, updateState]
   )
+
   // Obtener estadísticas para dashboard
   const fetchOrderStats = useCallback(async () => {
     try {
@@ -273,22 +272,17 @@ export const useOrders = (
     [updateOrderStatus]
   )
 
-  // Buscar órdenes
-  const searchOrders = useCallback(
-    async (searchTerm: string) => {
-      await fetchOrders({ search: searchTerm, page: 1 })
-    },
-    [fetchOrders]
-  )
+  // Buscar órdenes (filtro local)
+  const searchOrders = useCallback(async (searchTerm: string) => {
+    // Como no enviamos parámetros al backend, este método podría hacer filtrado local
+    setFiltersState((prev) => ({ ...prev, search: searchTerm }))
+  }, [])
 
-  // Filtrar por estado
-  const filterByStatus = useCallback(
-    async (status: OrderStatus | null) => {
-      const filterParams = status ? { status, page: 1 } : { page: 1 }
-      await fetchOrders(filterParams)
-    },
-    [fetchOrders]
-  )
+  // Filtrar por estado (filtro local)
+  const filterByStatus = useCallback(async (status: OrderStatus | null) => {
+    // Como no enviamos parámetros al backend, este método podría hacer filtrado local
+    setFiltersState((prev) => ({ ...prev, status: status || undefined }))
+  }, [])
 
   // Refrescar órdenes
   const refreshOrders = useCallback(async () => {
@@ -298,12 +292,13 @@ export const useOrders = (
     }
   }, [fetchOrders, fetchOrderStats, includeDashboard])
 
-  // Cambiar página
+  // Cambiar página (sin efecto real ya que no hay paginación)
   const setPage = useCallback(
     (page: number) => {
-      fetchOrders({ page })
+      // Si no hay paginación real, solo actualizamos el estado local
+      updateState({ currentPage: page })
     },
-    [fetchOrders]
+    [updateState]
   )
 
   // Actualizar filtros
@@ -311,9 +306,9 @@ export const useOrders = (
     (newFilters: Partial<GetOrdersParams>) => {
       const updatedFilters = { ...filters, ...newFilters }
       setFiltersState(updatedFilters)
-      fetchOrders(updatedFilters)
+      // No llamamos fetchOrders ya que no enviamos parámetros al backend
     },
-    [filters, fetchOrders]
+    [filters]
   )
 
   // Limpiar error
@@ -331,40 +326,92 @@ export const useOrders = (
     }
   }, []) // Solo se ejecuta una vez al montar
 
-  // Datos derivados con useMemo para optimización
-  const derivedData = useMemo(
-    () => ({
-      isEmpty: state.orders.length === 0 && !state.loading,
-      pendingOrders: state.orders.filter(
+  // Datos derivados con filtrado local
+  const derivedData = useMemo(() => {
+    // Aplicar filtros localmente
+    let filteredOrders = state.orders
+
+    // Filtrar por estado si existe
+    if (filters.status) {
+      filteredOrders = filteredOrders.filter(
+        (order) => order.status === filters.status
+      )
+    }
+
+    // Filtrar por búsqueda si existe
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase()
+      filteredOrders = filteredOrders.filter(
+        (order) =>
+          order.id?.toLowerCase().includes(searchTerm) ||
+          order.userId?.toLowerCase().includes(searchTerm)
+      )
+    }
+
+    return {
+      isEmpty: filteredOrders.length === 0 && !state.loading,
+      pendingOrders: filteredOrders.filter(
         (order) => order.status === "En Preparacion"
       ),
-      approvedOrders: state.orders.filter(
+      approvedOrders: filteredOrders.filter(
         (order) => order.status === "Aprobada"
       ),
-      deliveredOrders: state.orders.filter(
+      deliveredOrders: filteredOrders.filter(
         (order) => order.status === "Entregada"
       ),
-      canceledOrders: state.orders.filter(
+      canceledOrders: filteredOrders.filter(
         (order) => order.status === "Cancelada"
       ),
-      totalRevenue: state.orders.reduce(
-        (sum, order) => sum + order.summary.grandTotal,
-        0
-      ),
+      // Validación segura para totalRevenue
+      totalRevenue: filteredOrders.reduce((sum, order) => {
+        const grandTotal = order.summary?.grandTotal || 0
+        return (
+          sum +
+          (typeof grandTotal === "number" && !isNaN(grandTotal)
+            ? grandTotal
+            : 0)
+        )
+      }, 0),
+      // Validación segura para averageOrderValue
       averageOrderValue:
-        state.orders.length > 0
-          ? state.orders.reduce(
-              (sum, order) => sum + order.summary.grandTotal,
-              0
-            ) / state.orders.length
+        filteredOrders.length > 0
+          ? (() => {
+              const total = filteredOrders.reduce((sum, order) => {
+                const grandTotal = order.summary?.grandTotal || 0
+                return (
+                  sum +
+                  (typeof grandTotal === "number" && !isNaN(grandTotal)
+                    ? grandTotal
+                    : 0)
+                )
+              }, 0)
+              return total / filteredOrders.length
+            })()
           : 0,
-    }),
-    [state.orders, state.loading]
-  )
+    }
+  }, [state.orders, state.loading, filters])
 
   return {
-    // Estado
+    // Estado (con órdenes filtradas)
     ...state,
+    orders: derivedData.isEmpty
+      ? []
+      : filters.status || filters.search
+      ? state.orders.filter((order) => {
+          let matches = true
+          if (filters.status) {
+            matches = matches && order.status === filters.status
+          }
+          if (filters.search) {
+            const searchTerm = filters.search.toLowerCase()
+            matches =
+              matches &&
+              (order.id?.toLowerCase().includes(searchTerm) ||
+                order.userId?.toLowerCase().includes(searchTerm))
+          }
+          return matches
+        })
+      : state.orders,
     ...derivedData,
 
     // Acciones
