@@ -84,7 +84,6 @@ export const useOrders = (
       try {
         const finalParams = { ...filters, ...params }
 
-        // 🔥 DEBUG: Agregar logs
         console.log("🔥 fetchOrders llamado con params:", params)
         console.log("🔥 filters actuales:", filters)
         console.log("🔥 finalParams que se enviarán:", finalParams)
@@ -93,15 +92,84 @@ export const useOrders = (
 
         console.log("🔥 Response exitosa:", response)
 
-        updateState({
-          orders: response.data,
-          totalOrders: response.meta.total,
-          currentPage: response.meta.page,
-          totalPages: response.meta.totalPages,
-          hasNextPage: response.meta.page < response.meta.totalPages,
-          hasPrevPage: response.meta.page > 1,
-          loading: false,
-        })
+        // Verificar la estructura de la respuesta
+        if (response && typeof response === "object") {
+          // Caso 1: Respuesta paginada estándar
+          if (response.data && response.meta) {
+            updateState({
+              orders: Array.isArray(response.data) ? response.data : [],
+              totalOrders: response.meta.total || 0,
+              currentPage: response.meta.page || 1,
+              totalPages: response.meta.totalPages || 1,
+              hasNextPage:
+                (response.meta.page || 1) < (response.meta.totalPages || 1),
+              hasPrevPage: (response.meta.page || 1) > 1,
+              loading: false,
+            })
+          }
+          // Caso 2: Array directo de órdenes
+          // Caso 2: Array directo de órdenes (ESTE ES TU CASO)
+          else if (Array.isArray(response)) {
+            console.log("🔥 Array de órdenes recibido:", response)
+            updateState({
+              orders: response,
+              totalOrders: response.length,
+              currentPage: 1,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPrevPage: false,
+              loading: false,
+            })
+          }
+          // Caso 3: Objeto individual (tu caso actual)
+          // Caso 3: Objeto individual
+          else if (
+            "userId" in response ||
+            "id" in response ||
+            "summary" in response
+          ) {
+            // Casting explícito a unknown primero, luego a any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const orderObj = response as unknown as any
+
+            // Verificar si parece ser una orden válida
+            const hasValidId = orderObj.id !== null && orderObj.id !== undefined
+            const orderArray = hasValidId ? [orderObj] : []
+
+            updateState({
+              orders: orderArray,
+              totalOrders: orderArray.length,
+              currentPage: 1,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPrevPage: false,
+              loading: false,
+            })
+          }
+          // Caso 4: Respuesta vacía o estructura desconocida
+          else {
+            updateState({
+              orders: [],
+              totalOrders: 0,
+              currentPage: 1,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPrevPage: false,
+              loading: false,
+            })
+          }
+        } else {
+          // Respuesta inválida
+          updateState({
+            orders: [],
+            totalOrders: 0,
+            currentPage: 1,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPrevPage: false,
+            loading: false,
+          })
+        }
       } catch (error) {
         console.error("🔥 Error en fetchOrders:", error)
         updateState({
@@ -113,7 +181,6 @@ export const useOrders = (
     },
     [filters, updateState]
   )
-
   // Obtener estadísticas para dashboard
   const fetchOrderStats = useCallback(async () => {
     try {
