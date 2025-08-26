@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import React, { JSX, useState } from "react"
@@ -16,6 +17,8 @@ import {
 import { toast } from "sonner"
 import { Order, OrderStatus } from "../../types/orders"
 import useOrders from "../../hooks/useOrders"
+import useOrderActions from "../../hooks/useAprobbed"
+
 
 const OrdersTable: React.FC = () => {
   const {
@@ -29,13 +32,21 @@ const OrdersTable: React.FC = () => {
     hasPrevPage,
     searchOrders,
     refreshOrders,
-    approveOrder,
     setPage,
     clearError,
   } = useOrders({
     // Quitar initialParams ya que tu backend no los usa
     autoFetch: true,
   })
+
+  // Hook para acciones de órdenes
+  const {
+    isApproving,
+    approveError,
+    approveOrder,
+    clearErrors,
+    isUserAdmin,
+  } = useOrderActions()
 
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>("")
@@ -51,14 +62,21 @@ const OrdersTable: React.FC = () => {
   // Manejar aprobación de orden
   const handleApproveOrder = async (orderId: string): Promise<void> => {
     setActionLoading(orderId)
+    clearErrors() // Limpiar errores previos
+    
     try {
       const success = await approveOrder(orderId)
       if (success) {
-        toast.success("Orden aprobada correctamente")
+        toast.success("🎉 Orden aprobada correctamente")
+        // Refrescar la lista de órdenes para mostrar el nuevo estado
+        await refreshOrders()
+      } else {
+        // El error ya está manejado en el hook
+        toast.error(approveError || "Error al aprobar la orden")
       }
     } catch (error) {
-      console.error("Error aprobando orden:", error)
-      toast.error("Error al aprobar la orden")
+      console.error("Error inesperado aprobando orden:", error)
+      toast.error("Error inesperado al aprobar la orden")
     } finally {
       setActionLoading(null)
     }
@@ -69,6 +87,19 @@ const OrdersTable: React.FC = () => {
     console.log("Ver detalles de orden:", orderId)
     // Aquí navegarías a la vista de detalle
     // router.push(`/admin/orders/${orderId}`);
+  }
+
+  // Función para mapear estados del backend al frontend
+  const mapBackendStatus = (backendStatus: string): OrderStatus => {
+    const statusMap: Record<string, OrderStatus> = {
+      'onPreparation': 'En Preparacion',
+      'approved': 'Aprobada', 
+      'inTransit': 'En Transito',
+      'delivered': 'Entregada',
+      'cancelled': 'Cancelada',
+      'returned': 'Devuelta'
+    }
+    return statusMap[backendStatus] || 'En Preparacion'
   }
 
   // Obtener badge de estado
@@ -226,6 +257,14 @@ const OrdersTable: React.FC = () => {
             </button>
           </div>
 
+          {/* Mostrar error de aprobación si existe */}
+          {approveError && (
+            <ErrorMessage
+              message={`Error al aprobar orden: ${approveError}`}
+              onClose={clearErrors}
+            />
+          )}
+
           {/* Mostrar error si existe */}
           {error && (
             <ErrorMessage
@@ -283,7 +322,7 @@ const OrdersTable: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  safeOrders.map((order: Order) => (
+                  safeOrders.map((order: any) => (
                     <tr
                       key={order.id}
                       className="hover:bg-gray-50"
@@ -309,88 +348,63 @@ const OrdersTable: React.FC = () => {
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">
-                              {order.customer?.name || "Cliente sin datos"}
+                              {order.user?.name || "Cliente sin datos"}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {order.customer?.email || "Email no disponible"}
+                              {order.user?.email || "Email no disponible"}
                             </div>
-                            {order.customer?.phone && (
+                            {order.user?.phone && (
                               <div className="text-xs text-gray-400">
-                                {order.customer.phone}
+                                {order.user.phone}
                               </div>
                             )}
                             <div className="text-xs text-gray-400">
-                              UserID: {order.userId?.slice(0, 8) || "N/A"}...
+                              UserID: {order.user?.id?.slice(0, 8) || "N/A"}...
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
-                          {order.items?.length || 0} producto
-                          {(order.items?.length || 0) !== 1 ? "s" : ""}
+                          {order.orderDetails?.products?.length || 0} producto
+                          {(order.orderDetails?.products?.length || 0) !== 1 ? "s" : ""}
                         </div>
-                        {order.items?.length > 0 ? (
+                        {order.orderDetails?.products?.length > 0 ? (
                           <div className="text-xs text-gray-500">
-                            {order.items[0]?.productName ||
+                            {order.orderDetails.products[0]?.name ||
                               "Producto sin nombre"}
-                            {order.items.length > 1 &&
-                              ` +${order.items.length - 1} más`}
+                            {order.orderDetails.products.length > 1 &&
+                              ` +${order.orderDetails.products.length - 1} más`}
                           </div>
                         ) : (
                           <div className="text-xs text-red-500">
                             Carrito vacío
                           </div>
                         )}
-                        {(order.summary?.invalidItemsCount || 0) > 0 && (
-                          <div className="text-xs text-red-500">
-                            {order.summary.invalidItemsCount} item(s)
-                            inválido(s)
-                          </div>
-                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm font-medium text-gray-900">
                           <DollarSign className="h-4 w-4 text-green-500 mr-1" />
-                          {formatPrice(
-                            order.summary?.grandTotal ||
-                              order.summary?.total ||
-                              0,
-                            order.summary?.currency || "COP"
-                          )}
+                          {formatPrice(parseFloat(order.orderDetails?.price || "0"), "COP")}
                         </div>
-                        {(order.summary?.discount || 0) > 0 && (
-                          <div className="text-xs text-green-600">
-                            Desc:{" "}
-                            {formatPrice(
-                              order.summary.discount,
-                              order.summary.currency
-                            )}
-                          </div>
-                        )}
                         <div className="text-xs text-gray-500">
-                          {order.summary?.currency || "COP"}
-                          {(order.summary?.tax || 0) > 0 &&
-                            ` • IVA: ${formatPrice(
-                              order.summary.tax,
-                              order.summary.currency
-                            )}`}
+                          COP
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(order.status || "En Preparacion")}
+                        {getStatusBadge(mapBackendStatus(order.status || "onPreparation"))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-start text-sm text-gray-900">
                           <Calendar className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
                           <div>
-                            {order.createdAt ? (
+                            {order.date ? (
                               <>
                                 <div className="font-medium">
-                                  {formatDate(order.createdAt)}
+                                  {formatDate(order.date)}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                  {formatTime(order.createdAt)}
+                                  {formatTime(order.date)}
                                 </div>
                               </>
                             ) : (
@@ -413,11 +427,11 @@ const OrdersTable: React.FC = () => {
                             Ver Detalle
                           </button>
 
-                          {/* Botón aprobar - solo si está en preparación */}
-                          {order.status === "En Preparacion" && (
+                          {/* Botón aprobar - solo si está en preparación Y es admin */}
+                          {order.status === "onPreparation" && isUserAdmin && (
                             <button
                               onClick={() => handleApproveOrder(order.id)}
-                              disabled={actionLoading === order.id}
+                              disabled={actionLoading === order.id || isApproving}
                               className="inline-flex items-center px-3 py-1 border border-green-300 rounded text-xs font-medium text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Aprobar orden"
                             >
@@ -431,18 +445,18 @@ const OrdersTable: React.FC = () => {
                                 : "Aprobar"}
                             </button>
                           )}
-
-                          {/* Mostrar badge adicional si es carrito vacío */}
-                          {(order.items?.length || 0) === 0 && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
-                              Vacío
+                          
+                          {/* Mostrar mensaje si no es admin */}
+                          {order.status === "onPreparation" && !isUserAdmin && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
+                              Solo Admin
                             </span>
                           )}
 
-                          {/* Mostrar badge si hay items inválidos */}
-                          {(order.summary?.invalidItemsCount || 0) > 0 && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
-                              {order.summary.invalidItemsCount} inválido(s)
+                          {/* Mostrar badge adicional si es carrito vacío */}
+                          {(order.orderDetails?.products?.length || 0) === 0 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
+                              Vacío
                             </span>
                           )}
 
