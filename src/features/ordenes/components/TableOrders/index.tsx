@@ -19,7 +19,7 @@ import useOrders from "../../hooks/useOrders"
 
 const OrdersTable: React.FC = () => {
   const {
-    orders,
+    orders = [], // Valor por defecto para evitar undefined
     loading,
     error,
     totalOrders,
@@ -28,16 +28,12 @@ const OrdersTable: React.FC = () => {
     hasNextPage,
     hasPrevPage,
     searchOrders,
-
     refreshOrders,
     approveOrder,
     setPage,
     clearError,
   } = useOrders({
-    initialParams: {
-      limit: 10,
-      // status: "En Preparacion",
-    },
+    // Quitar initialParams ya que tu backend no los usa
     autoFetch: true,
   })
 
@@ -157,7 +153,10 @@ const OrdersTable: React.FC = () => {
     </div>
   )
 
-  if (loading && orders.length === 0) {
+  // Validación de seguridad para orders
+  const safeOrders = Array.isArray(orders) ? orders : []
+
+  if (loading && safeOrders.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <div className="p-6 border-b border-gray-200">
@@ -191,7 +190,9 @@ const OrdersTable: React.FC = () => {
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-500">Órdenes pendientes</p>
-              <p className="text-2xl font-bold text-blue-600">{totalOrders}</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {totalOrders || 0}
+              </p>
             </div>
           </div>
         </div>
@@ -233,6 +234,14 @@ const OrdersTable: React.FC = () => {
             />
           )}
 
+          {/* Debug temporal */}
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-sm text-yellow-800">
+              Debug: Órdenes recibidas: {safeOrders.length} | Loading:{" "}
+              {loading ? "Sí" : "No"} | Error: {error || "Ninguno"}
+            </p>
+          </div>
+
           {/* Tabla de órdenes */}
           <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
             <table className="min-w-full divide-y divide-gray-300">
@@ -262,7 +271,7 @@ const OrdersTable: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {orders.length === 0 ? (
+                {safeOrders.length === 0 ? (
                   <tr>
                     <td
                       colSpan={7}
@@ -270,11 +279,11 @@ const OrdersTable: React.FC = () => {
                     >
                       {loading
                         ? "Buscando órdenes..."
-                        : "No hay órdenes pendientes de aprobación"}
+                        : "No hay órdenes disponibles. Verifica tu base de datos o crea una orden de prueba."}
                     </td>
                   </tr>
                 ) : (
-                  orders.map((order: Order) => (
+                  safeOrders.map((order: Order) => (
                     <tr
                       key={order.id}
                       className="hover:bg-gray-50"
@@ -284,10 +293,10 @@ const OrdersTable: React.FC = () => {
                           <div className="text-sm font-medium text-gray-900">
                             {order.orderNumber
                               ? order.orderNumber
-                              : `RP-${order.id.slice(0, 8)}`}
+                              : `RP-${order.id?.slice(0, 8) || "unknown"}`}
                           </div>
                           <div className="text-sm text-gray-500">
-                            ID: {order.id.slice(0, 8)}...
+                            ID: {order.id?.slice(0, 8) || "N/A"}...
                           </div>
                         </div>
                       </td>
@@ -300,14 +309,10 @@ const OrdersTable: React.FC = () => {
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">
-                              {order.customer
-                                ? order.customer.name
-                                : "Cliente sin datos"}
+                              {order.customer?.name || "Cliente sin datos"}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {order.customer
-                                ? order.customer.email
-                                : "Email no disponible"}
+                              {order.customer?.email || "Email no disponible"}
                             </div>
                             {order.customer?.phone && (
                               <div className="text-xs text-gray-400">
@@ -315,21 +320,20 @@ const OrdersTable: React.FC = () => {
                               </div>
                             )}
                             <div className="text-xs text-gray-400">
-                              UserID: {order.userId.slice(0, 8)}...
+                              UserID: {order.userId?.slice(0, 8) || "N/A"}...
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
-                          {order.items.length} producto
-                          {order.items.length !== 1 ? "s" : ""}
+                          {order.items?.length || 0} producto
+                          {(order.items?.length || 0) !== 1 ? "s" : ""}
                         </div>
-                        {order.items.length > 0 ? (
+                        {order.items?.length > 0 ? (
                           <div className="text-xs text-gray-500">
-                            {order.items[0]?.productName
-                              ? order.items[0].productName
-                              : "Producto sin nombre"}
+                            {order.items[0]?.productName ||
+                              "Producto sin nombre"}
                             {order.items.length > 1 &&
                               ` +${order.items.length - 1} más`}
                           </div>
@@ -338,7 +342,7 @@ const OrdersTable: React.FC = () => {
                             Carrito vacío
                           </div>
                         )}
-                        {order.summary.invalidItemsCount > 0 && (
+                        {(order.summary?.invalidItemsCount || 0) > 0 && (
                           <div className="text-xs text-red-500">
                             {order.summary.invalidItemsCount} item(s)
                             inválido(s)
@@ -349,13 +353,13 @@ const OrdersTable: React.FC = () => {
                         <div className="flex items-center text-sm font-medium text-gray-900">
                           <DollarSign className="h-4 w-4 text-green-500 mr-1" />
                           {formatPrice(
-                            order.summary.grandTotal
-                              ? order.summary.grandTotal
-                              : order.summary.total,
-                            order.summary.currency
+                            order.summary?.grandTotal ||
+                              order.summary?.total ||
+                              0,
+                            order.summary?.currency || "COP"
                           )}
                         </div>
-                        {order.summary.discount > 0 && (
+                        {(order.summary?.discount || 0) > 0 && (
                           <div className="text-xs text-green-600">
                             Desc:{" "}
                             {formatPrice(
@@ -365,8 +369,8 @@ const OrdersTable: React.FC = () => {
                           </div>
                         )}
                         <div className="text-xs text-gray-500">
-                          {order.summary.currency}
-                          {order.summary.tax > 0 &&
+                          {order.summary?.currency || "COP"}
+                          {(order.summary?.tax || 0) > 0 &&
                             ` • IVA: ${formatPrice(
                               order.summary.tax,
                               order.summary.currency
@@ -374,9 +378,7 @@ const OrdersTable: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(
-                          order.status ? order.status : "En Preparacion"
-                        )}
+                        {getStatusBadge(order.status || "En Preparacion")}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-start text-sm text-gray-900">
@@ -431,14 +433,14 @@ const OrdersTable: React.FC = () => {
                           )}
 
                           {/* Mostrar badge adicional si es carrito vacío */}
-                          {order.items.length === 0 && (
+                          {(order.items?.length || 0) === 0 && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
                               Vacío
                             </span>
                           )}
 
                           {/* Mostrar badge si hay items inválidos */}
-                          {order.summary.invalidItemsCount > 0 && (
+                          {(order.summary?.invalidItemsCount || 0) > 0 && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
                               {order.summary.invalidItemsCount} inválido(s)
                             </span>
@@ -460,21 +462,22 @@ const OrdersTable: React.FC = () => {
           {/* Paginación */}
           <div className="flex items-center justify-between mt-6">
             <div className="text-sm text-gray-500">
-              Mostrando {orders.length} de {totalOrders} órdenes pendientes
+              Mostrando {safeOrders.length} de {totalOrders || 0} órdenes
+              pendientes
             </div>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => setPage(currentPage - 1)}
+                onClick={() => setPage((currentPage || 1) - 1)}
                 disabled={!hasPrevPage || loading}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Anterior
               </button>
               <span className="inline-flex items-center px-3 py-2 text-sm text-gray-500">
-                Página {currentPage} de {totalPages}
+                Página {currentPage || 1} de {totalPages || 1}
               </span>
               <button
-                onClick={() => setPage(currentPage + 1)}
+                onClick={() => setPage((currentPage || 1) + 1)}
                 disabled={!hasNextPage || loading}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
