@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // services/userService.ts
 
+
+
+//importaciones del servicio
+
 import {
   GetUsersParams,
   UsersResponse,
@@ -11,8 +15,7 @@ import {
 } from "../types/table-users"
 
 // Configuración base de la API
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
 
 class ApiClient {
   private baseURL: string
