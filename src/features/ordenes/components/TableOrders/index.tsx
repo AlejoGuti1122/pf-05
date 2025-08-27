@@ -17,8 +17,8 @@ import {
 import { toast } from "sonner"
 import { Order, OrderStatus } from "../../types/orders"
 import useOrders from "../../hooks/useOrders"
+import OrderDetailModal from "../ModalOrdersDetail"
 import useOrderActions from "../../hooks/useAprobbed"
-
 
 const OrdersTable: React.FC = () => {
   const {
@@ -40,16 +40,15 @@ const OrdersTable: React.FC = () => {
   })
 
   // Hook para acciones de órdenes
-  const {
-    isApproving,
-    approveError,
-    approveOrder,
-    clearErrors,
-    isUserAdmin,
-  } = useOrderActions()
+  const { isApproving, approveError, approveOrder, clearErrors, isUserAdmin } =
+    useOrderActions()
 
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>("")
+
+  // Estados para el modal
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Manejar búsqueda con debounce
   const handleSearch = async (term: string): Promise<void> => {
@@ -63,7 +62,7 @@ const OrdersTable: React.FC = () => {
   const handleApproveOrder = async (orderId: string): Promise<void> => {
     setActionLoading(orderId)
     clearErrors() // Limpiar errores previos
-    
+
     try {
       const success = await approveOrder(orderId)
       if (success) {
@@ -83,23 +82,28 @@ const OrdersTable: React.FC = () => {
   }
 
   // Manejar ver detalle de orden
-  const handleViewDetails = (orderId: string): void => {
-    console.log("Ver detalles de orden:", orderId)
-    // Aquí navegarías a la vista de detalle
-    // router.push(`/admin/orders/${orderId}`);
+  const handleViewDetails = (order: any): void => {
+    setSelectedOrder(order)
+    setIsModalOpen(true)
+  }
+
+  // Cerrar modal
+  const handleCloseModal = (): void => {
+    setIsModalOpen(false)
+    setSelectedOrder(null)
   }
 
   // Función para mapear estados del backend al frontend
   const mapBackendStatus = (backendStatus: string): OrderStatus => {
     const statusMap: Record<string, OrderStatus> = {
-      'onPreparation': 'En Preparacion',
-      'approved': 'Aprobada', 
-      'inTransit': 'En Transito',
-      'delivered': 'Entregada',
-      'cancelled': 'Cancelada',
-      'returned': 'Devuelta'
+      onPreparation: "En Preparacion",
+      approved: "Aprobada",
+      inTransit: "En Transito",
+      delivered: "Entregada",
+      cancelled: "Cancelada",
+      returned: "Devuelta",
     }
-    return statusMap[backendStatus] || 'En Preparacion'
+    return statusMap[backendStatus] || "En Preparacion"
   }
 
   // Obtener badge de estado
@@ -181,6 +185,13 @@ const OrdersTable: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de detalles */}
+      <OrderDetailModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        order={selectedOrder}
+      />
     </div>
   )
 
@@ -367,7 +378,9 @@ const OrdersTable: React.FC = () => {
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
                           {order.orderDetails?.products?.length || 0} producto
-                          {(order.orderDetails?.products?.length || 0) !== 1 ? "s" : ""}
+                          {(order.orderDetails?.products?.length || 0) !== 1
+                            ? "s"
+                            : ""}
                         </div>
                         {order.orderDetails?.products?.length > 0 ? (
                           <div className="text-xs text-gray-500">
@@ -385,14 +398,16 @@ const OrdersTable: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm font-medium text-gray-900">
                           <DollarSign className="h-4 w-4 text-green-500 mr-1" />
-                          {formatPrice(parseFloat(order.orderDetails?.price || "0"), "COP")}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          COP
+                          {formatPrice(
+                            parseFloat(order.orderDetails?.price || "0"),
+                            "COP"
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(mapBackendStatus(order.status || "onPreparation"))}
+                        {getStatusBadge(
+                          mapBackendStatus(order.status || "onPreparation")
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-start text-sm text-gray-900">
@@ -419,19 +434,20 @@ const OrdersTable: React.FC = () => {
                         <div className="flex items-center justify-end space-x-2">
                           {/* Botón ver detalles */}
                           <button
-                            onClick={() => handleViewDetails(order.id)}
-                            className="inline-flex items-center px-3 py-1 border border-blue-300 rounded text-xs font-medium text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            onClick={() => handleViewDetails(order)}
+                            className="inline-flex items-center p-2 border border-blue-300 rounded text-xs font-medium text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             title="Ver detalles de la orden"
                           >
-                            <Eye className="h-3 w-3 mr-1" />
-                            Ver Detalle
+                            <Eye className="h-4 w-4" />
                           </button>
 
                           {/* Botón aprobar - solo si está en preparación Y es admin */}
                           {order.status === "onPreparation" && isUserAdmin && (
                             <button
                               onClick={() => handleApproveOrder(order.id)}
-                              disabled={actionLoading === order.id || isApproving}
+                              disabled={
+                                actionLoading === order.id || isApproving
+                              }
                               className="inline-flex items-center px-3 py-1 border border-green-300 rounded text-xs font-medium text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Aprobar orden"
                             >
@@ -445,7 +461,7 @@ const OrdersTable: React.FC = () => {
                                 : "Aprobar"}
                             </button>
                           )}
-                          
+
                           {/* Mostrar mensaje si no es admin */}
                           {order.status === "onPreparation" && !isUserAdmin && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
@@ -454,16 +470,12 @@ const OrdersTable: React.FC = () => {
                           )}
 
                           {/* Mostrar badge adicional si es carrito vacío */}
-                          {(order.orderDetails?.products?.length || 0) === 0 && (
+                          {(order.orderDetails?.products?.length || 0) ===
+                            0 && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
                               Vacío
                             </span>
                           )}
-
-                          {/* Menú más opciones */}
-                          <button className="inline-flex items-center p-2 border border-gray-300 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
                         </div>
                       </td>
                     </tr>
