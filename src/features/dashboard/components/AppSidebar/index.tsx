@@ -29,7 +29,7 @@ const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Productos", url: "/products", icon: Package },
   { title: "Órdenes", url: "/ordenes", icon: ShoppingCart },
-  { title: "Clientes", url: "/customers", icon: Users },
+  { title: "Baneos", url: "/baneos", icon: Users },
   { title: "Ventas", url: "/sales", icon: BarChart3 },
   { title: "Configuración", url: "/settings", icon: Settings },
 ]
