@@ -14,8 +14,14 @@ interface UseUserActionsState {
 }
 
 interface UseUserActionsReturn extends UseUserActionsState {
-  toggleBan: (userId: string, currentBanStatus: boolean) => Promise<UserActionResponse | null>
-  toggleAdmin: (userId: string, currentAdminStatus: boolean) => Promise<UserActionResponse | null>
+  toggleBan: (
+    userId: string,
+    currentBanStatus: boolean
+  ) => Promise<UserActionResponse | null>
+  toggleAdmin: (
+    userId: string,
+    currentAdminStatus: boolean
+  ) => Promise<UserActionResponse | null>
   getBanStatusDisplay: (isBanned: boolean) => {
     status: string
     variant: "default" | "destructive" | "secondary"
@@ -42,7 +48,7 @@ export function useUserActions(): UseUserActionsReturn {
 
   // useEffect para manejar la hidratación correctamente
   useEffect(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isClient: true,
       canManageUsers: userActionsService.canManageUsers(),
@@ -51,12 +57,15 @@ export function useUserActions(): UseUserActionsReturn {
   }, [])
 
   const toggleBan = async (
-    userId: string, 
+    userId: string,
     currentBanStatus: boolean
   ): Promise<UserActionResponse | null> => {
-    console.log("🚫 useUserActions: Starting ban toggle", { userId, currentBanStatus })
+    console.log("🚫 useUserActions: Starting ban toggle", {
+      userId,
+      currentBanStatus,
+    })
 
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isLoading: true,
       error: null,
@@ -64,7 +73,7 @@ export function useUserActions(): UseUserActionsReturn {
 
     try {
       const result = await userActionsService.toggleBan(userId)
-      
+
       console.log("✅ useUserActions: Ban toggle successful", result)
 
       // Mostrar toast de éxito
@@ -73,7 +82,7 @@ export function useUserActions(): UseUserActionsReturn {
         description: result.message,
       })
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isLoading: false,
         error: null,
@@ -81,11 +90,12 @@ export function useUserActions(): UseUserActionsReturn {
 
       return result
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido"
+
       console.error("❌ useUserActions: Ban toggle failed", errorMessage)
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isLoading: false,
         error: errorMessage,
@@ -101,12 +111,15 @@ export function useUserActions(): UseUserActionsReturn {
   }
 
   const toggleAdmin = async (
-    userId: string, 
+    userId: string,
     currentAdminStatus: boolean
   ): Promise<UserActionResponse | null> => {
-    console.log("👑 useUserActions: Starting admin toggle", { userId, currentAdminStatus })
+    console.log("👑 useUserActions: Starting admin toggle", {
+      userId,
+      currentAdminStatus,
+    })
 
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isLoading: true,
       error: null,
@@ -114,16 +127,18 @@ export function useUserActions(): UseUserActionsReturn {
 
     try {
       const result = await userActionsService.toggleAdmin(userId)
-      
+
       console.log("✅ useUserActions: Admin toggle successful", result)
 
       // Mostrar toast de éxito
-      const actionText = currentAdminStatus ? "removidos los permisos de admin" : "promovido a admin"
+      const actionText = currentAdminStatus
+        ? "removidos los permisos de admin"
+        : "promovido a admin"
       toast.success(`Usuario ${actionText} exitosamente`, {
         description: result.message,
       })
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isLoading: false,
         error: null,
@@ -131,11 +146,12 @@ export function useUserActions(): UseUserActionsReturn {
 
       return result
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido"
+
       console.error("❌ useUserActions: Admin toggle failed", errorMessage)
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isLoading: false,
         error: errorMessage,
@@ -151,7 +167,7 @@ export function useUserActions(): UseUserActionsReturn {
   }
 
   const clearError = () => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       error: null,
     }))

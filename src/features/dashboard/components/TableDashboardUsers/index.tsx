@@ -106,6 +106,7 @@ const UsersTable: React.FC = () => {
   }
 
   // Manejar baneo/desbaneo con control de diálogo
+  // Función handleBanToggle corregida
   const handleBanToggle = async (user: any): Promise<void> => {
     console.log("🚫 DEBUG: Iniciando toggle ban para:", {
       userId: user.id,
@@ -114,25 +115,41 @@ const UsersTable: React.FC = () => {
       currentLoadingState: banActionLoading,
     })
 
+    // Prevenir múltiples clicks
+    if (banActionLoading === user.id) {
+      console.log("⚠️ DEBUG: Acción ya en progreso, ignorando click")
+      return
+    }
+
     setBanActionLoading(user.id)
     setBanDialogOpen(null) // Cerrar diálogo
 
     try {
+      console.log("🔄 DEBUG: Llamando toggleBan...")
       const result = await toggleBan(user.id, user.isBanned)
       console.log("✅ DEBUG: Resultado del toggle ban:", result)
 
       if (result) {
-        // Actualizar la lista de usuarios después del ban/unban exitoso
+        console.log("🔄 DEBUG: Refrescando usuarios...")
+        // Pequeño delay para asegurar que el backend haya procesado el cambio
+        await new Promise((resolve) => setTimeout(resolve, 500))
         await refreshUsers()
         console.log("✅ DEBUG: Usuarios refrescados exitosamente")
+      } else {
+        console.error("❌ ERROR: toggleBan devolvió false")
+        // Aquí puedes mostrar un mensaje de error al usuario
       }
     } catch (err) {
       console.error("❌ Error al cambiar estado de baneo:", err)
+      // Aquí puedes mostrar una notificación de error al usuario
     } finally {
       console.log("🔄 DEBUG: Limpiando estado de loading")
       setBanActionLoading(null)
     }
   }
+
+  // También asegúrate de que tu hook useUserActions maneje correctamente los errores
+  // y que toggleBan no esté causando side effects inesperados
 
   // Manejar promoción/degradación de admin
   const handleAdminToggle = async (user: any): Promise<void> => {
@@ -824,14 +841,6 @@ const UsersTable: React.FC = () => {
                                     </AlertDialog>
                                   </>
                                 )}
-
-                              <DropdownMenuSeparator />
-
-                              {/* Otras acciones futuras */}
-                              <DropdownMenuItem className="cursor-pointer">
-                                <UserIcon className="mr-2 h-4 w-4" />
-                                Ver perfil
-                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
 
