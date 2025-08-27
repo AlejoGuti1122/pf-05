@@ -297,7 +297,7 @@ const ShoppingCart = () => {
                             {itemName}
                           </h3>
                           <p className="text-red-600 font-bold text-xl mb-3">
-                            ${itemPrice.toFixed(2)}
+                            ${(item.lineTotal || item.total || itemPrice * itemQuantity).toFixed(2)}
                           </p>
 
                           {/* ✅ NUEVO: Mostrar flags si existen */}
@@ -378,14 +378,7 @@ const ShoppingCart = () => {
 
                         {/* Item Total */}
                         <div className="text-right sm:text-left">
-                          <p className="text-lg font-bold text-black">
-                            $
-                            {(
-                              item.lineTotal ||
-                              item.total ||
-                              itemPrice * itemQuantity
-                            ).toFixed(2)}
-                          </p>
+                          
                           {/* ✅ NUEVO: Mostrar precio unitario actual vs snapshot si cambió */}
                           {item.unitPriceSnapshot &&
                             item.unitPriceCurrent &&
