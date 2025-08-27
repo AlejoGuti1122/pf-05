@@ -178,6 +178,11 @@ export function CartProvider({ children }: CartProviderProps) {
   )
 
   // ✅ MEJORADA: Actualizar cantidad con verificación de auth
+  // En tu contexto, reemplaza updateQuantity con esta versión:
+  // Reemplaza tu función updateQuantity con esta versión corregida:
+
+  // Función updateQuantity corregida con sincronización automática:
+
   const updateQuantity = useCallback(
     async (itemId: string, quantity: number) => {
       if (!user) {
@@ -189,11 +194,29 @@ export function CartProvider({ children }: CartProviderProps) {
         setIsLoading(true)
         setError(null)
 
-        await cartService.updateItemQuantity(itemId, { quantity })
+        // Obtener el productId desde el item
+        const currentCart = await cartService.getCurrentCart()
+        const cartData = currentCart?.data || currentCart
+        const item = cartData?.items?.find((item: any) => item.id === itemId)
+
+        if (!item) {
+          toast.error("El producto ya no está en tu carrito")
+          await fetchCart()
+          return
+        }
+
+        // Usar productId en lugar de itemId
+        console.log(
+          "🔗 Llamando endpoint con productId:",
+          `/cart/items/${item.productId}`
+        )
+        await cartService.updateItemQuantity(item.productId, { quantity })
         await fetchCart()
 
         toast.success("Cantidad actualizada correctamente")
       } catch (error) {
+        console.log("❌ Error en updateQuantity:", error)
+        await fetchCart()
         handleError(error, "Error al actualizar la cantidad")
       } finally {
         setIsLoading(false)
