@@ -10,6 +10,7 @@ export interface CartItemFlags {
 
 // ✅ ACTUALIZADO: CartItem según la respuesta real del backend
 export interface CartItem {
+  variantId: any
   id: string
   productId: string
   name: string
