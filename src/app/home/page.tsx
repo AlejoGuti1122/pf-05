@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
+import ButtonAdmin from "@/features/home/components/ButtonAdminHome"
 import ProductCardsList from "@/features/home/components/ProductCardList"
 import ProductFilters from "@/features/home/components/ProductFilters"
 import SearchBarWithAPI from "@/features/home/components/Searchbar"
@@ -12,9 +13,23 @@ import Image from "next/image"
 import React, { useState, useMemo, useEffect } from "react"
 
 const PageHome = () => {
-  // 🚀 MANEJAR TOKEN DE GOOGLE AUTH AL INICIO - DEBUG COMPLETO
+  // ESTADOS
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [filters, setFilters] = useState<FilterState>({
+    priceRange: { min: 0, max: 0 },
+    selectedBrands: [],
+    yearRange: { min: 1990, max: new Date().getFullYear() },
+  })
+  const [sortBy, setSortBy] = useState<"name" | "price" | "brand" | "year">(
+    "name"
+  )
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [showFilters, setShowFilters] = useState(false)
+
+  // MANEJAR GOOGLE AUTH Y CARGAR USUARIO
   useEffect(() => {
-    // 🔍 CAPTURAR TODA LA INFORMACIÓN PARA EL BACKEND
+    // CAPTURAR TODA LA INFORMACIÓN PARA EL BACKEND
     console.log("🔍 ===== DEBUG COMPLETO PARA BACKEND =====")
     console.log("🔍 URL COMPLETA:", window.location.href)
     console.log("🔍 PATHNAME:", window.location.pathname)
@@ -23,10 +38,10 @@ const PageHome = () => {
 
     const urlParams = new URLSearchParams(window.location.search)
 
-    // 🔍 TODOS LOS PARÁMETROS
+    // TODOS LOS PARÁMETROS
     console.log("🔍 TODOS LOS PARÁMETROS URL:", Object.fromEntries(urlParams))
 
-    // 🔍 PARÁMETROS ESPECÍFICOS
+    // PARÁMETROS ESPECÍFICOS
     const token = urlParams.get("token")
     const data = urlParams.get("data")
     const success = urlParams.get("success")
@@ -39,18 +54,18 @@ const PageHome = () => {
     console.log("🔍 PARÁMETRO error:", error)
     console.log("🔍 PARÁMETRO code:", code)
 
-    // 🔍 HEADERS Y OTROS DATOS
+    // HEADERS Y OTROS DATOS
     console.log("🔍 USER AGENT:", navigator.userAgent)
     console.log("🔍 REFERRER:", document.referrer)
 
-    // 🔍 DATOS EN LOCALSTORAGE ANTES
+    // DATOS EN LOCALSTORAGE ANTES
     console.log("🔍 LOCALSTORAGE ANTES:")
     console.log("  - token:", localStorage.getItem("token"))
     console.log("  - user:", localStorage.getItem("user"))
 
     console.log("🔍 ===== FIN DEBUG INICIAL =====")
 
-    // 🔥 NUEVO FORMATO: data con access_token y user
+    // NUEVO FORMATO: data con access_token y user
     if (data) {
       console.log("✅ DETECTADO PARÁMETRO DATA")
       try {
@@ -67,7 +82,7 @@ const PageHome = () => {
 
           console.log("💾 Token y usuario de Google guardados exitosamente")
 
-          // ✅ NUEVO: Solo disparar evento - SIN reload
+          // NUEVO: Solo disparar evento - SIN reload
           console.log("📡 Notificando a useAuth sobre el cambio...")
           window.dispatchEvent(new CustomEvent("auth-updated"))
 
@@ -77,9 +92,6 @@ const PageHome = () => {
             document.title,
             window.location.pathname
           )
-
-          // ✅ ELIMINADO: No más reload automático
-          // setTimeout(() => window.location.reload(), 500)
 
           console.log(
             "✅ Login con Google completado - useAuth debería detectar el cambio automáticamente"
@@ -91,7 +103,7 @@ const PageHome = () => {
         console.error("❌ Error parseando datos de Google:", error)
       }
     }
-    // 🔄 FORMATO ANTERIOR: token directo (mantener por compatibilidad)
+    // FORMATO ANTERIOR: token directo (mantener por compatibilidad)
     else if (token) {
       console.log("✅ DETECTADO PARÁMETRO TOKEN (formato anterior)")
 
@@ -115,7 +127,7 @@ const PageHome = () => {
           "💾 Token de Google guardado exitosamente (formato anterior)"
         )
 
-        // ✅ NUEVO: Solo disparar evento - SIN reload
+        // NUEVO: Solo disparar evento - SIN reload
         console.log("📡 Notificando a useAuth sobre el cambio...")
         window.dispatchEvent(new CustomEvent("auth-updated"))
 
@@ -132,34 +144,33 @@ const PageHome = () => {
         console.error("❌ Error guardando token de Google:", error)
       }
     }
-    // 🔍 OTROS PARÁMETROS
+    // OTROS PARÁMETROS
     else if (success || error || code) {
       console.log("✅ DETECTADOS OTROS PARÁMETROS")
       console.log("🔍 Success:", success)
       console.log("🔍 Error:", error)
       console.log("🔍 Code:", code)
     }
-    // 🤷 NINGÚN PARÁMETRO RELEVANTE
+    // NINGÚN PARÁMETRO RELEVANTE
     else {
       console.log("ℹ️ NO SE DETECTARON PARÁMETROS DE GOOGLE AUTH")
       console.log("ℹ️ Esto es normal si entraste directo a /home")
     }
+
+    // Cargar usuario del localStorage
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser)
+        console.log("👤 Usuario cargado del localStorage:", parsedUser)
+        setCurrentUser(parsedUser)
+      } catch (error) {
+        console.error("❌ Error parsing stored user:", error)
+      }
+    } else {
+      console.log("ℹ️ No hay usuario en localStorage")
+    }
   }, [])
-
-  const [searchResults, setSearchResults] = useState<any[]>([])
-
-  // ✅ FILTROS SIMPLIFICADOS - Solo marcas y años
-  const [filters, setFilters] = useState<FilterState>({
-    priceRange: { min: 0, max: 0 }, // Mantenemos por compatibilidad
-    selectedBrands: [],
-    yearRange: { min: 1990, max: new Date().getFullYear() }, // ✅ Filtro de año activo
-  })
-
-  const [sortBy, setSortBy] = useState<"name" | "price" | "brand" | "year">(
-    "name"
-  )
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
-  const [showFilters, setShowFilters] = useState(false)
 
   // MARCAS DISPONIBLES
   const availableBrands = useMemo(() => {
@@ -167,29 +178,18 @@ const PageHome = () => {
     return [...new Set(searchResults.map((p: any) => p.brand))].sort()
   }, [searchResults])
 
-  // Handlers para búsqueda
-  const handleResultsChange = (results: any[]) => {
-    console.log("🎯 PADRE - Results received:", results)
-    setSearchResults(results)
-  }
-
-  // ✅ LÓGICA DE FILTRADO SIMPLIFICADA - Solo marcas y años
+  // RESULTADOS FILTRADOS
   const filteredSearchResults = useMemo(() => {
     if (!searchResults.length) return []
 
-    console.log("🔍 Filtros actuales:", filters)
-
     return searchResults
       .filter((product: any) => {
-        // ✅ FILTRO DE MARCA
+        // Filtro de marca
         if (filters.selectedBrands.length > 0) {
-          if (!filters.selectedBrands.includes(product.brand)) {
-            console.log(`❌ ${product.name} filtrado por marca`)
-            return false
-          }
+          if (!filters.selectedBrands.includes(product.brand)) return false
         }
 
-        // ✅ FILTRO DE AÑO
+        // Filtro de año
         if (
           filters.yearRange.min > 1990 ||
           filters.yearRange.max < new Date().getFullYear()
@@ -199,81 +199,55 @@ const PageHome = () => {
             productYear < filters.yearRange.min ||
             productYear > filters.yearRange.max
           ) {
-            console.log(
-              `❌ ${product.name} filtrado por año (${productYear} fuera del rango ${filters.yearRange.min}-${filters.yearRange.max})`
-            )
             return false
           }
         }
-
-        console.log(`✅ ${product.name} pasa todos los filtros`)
         return true
       })
       .sort((a: any, b: any) => {
-        // ✅ ORDENAMIENTO CORREGIDO - SEPARAR LÓGICA NUMÉRICA Y ALFABÉTICA
         if (sortBy === "price" || sortBy === "year") {
-          // ✅ Para números: convertir a Number y comparar directamente
           const aValue = Number(a[sortBy])
           const bValue = Number(b[sortBy])
-
-          console.log(
-            `🔢 Ordenando ${sortBy}: ${a.name} (${aValue}) vs ${b.name} (${bValue})`
-          )
-
-          if (sortOrder === "asc") {
-            return aValue - bValue // ✅ Ascendente: menor a mayor
-          } else {
-            return bValue - aValue // ✅ Descendente: mayor a menor
-          }
+          return sortOrder === "asc" ? aValue - bValue : bValue - aValue
         } else {
-          // ✅ Para texto: convertir a string y comparar alfabéticamente
           const aValue = String(a[sortBy]).toLowerCase()
           const bValue = String(b[sortBy]).toLowerCase()
-
-          if (sortOrder === "asc") {
-            return aValue.localeCompare(bValue) // ✅ A-Z
-          } else {
-            return bValue.localeCompare(aValue) // ✅ Z-A
-          }
+          return sortOrder === "asc"
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue)
         }
       })
   }, [searchResults, filters, sortBy, sortOrder])
 
-  // ✅ CONTAR FILTROS ACTIVOS - Solo marcas y años
+  // CONTAR FILTROS ACTIVOS
   const activeFiltersCount = useMemo(() => {
     let count = 0
-
-    // Marcas activas si hay alguna seleccionada
     if (filters.selectedBrands.length > 0) count++
-
-    // Año activo si no son los valores por defecto
     if (
       filters.yearRange.min > 1990 ||
       filters.yearRange.max < new Date().getFullYear()
     )
       count++
-
     return count
   }, [filters])
 
-  // HANDLERS PARA FILTROS
+  // HANDLERS
+  const handleResultsChange = (results: any[]) => {
+    setSearchResults(results)
+  }
+
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
-    console.log("🔄 Cambiando filtros:", newFilters)
     setFilters((prev: FilterState) => ({ ...prev, ...newFilters }))
   }
 
   const handleSortChange = (newSortBy: typeof sortBy) => {
     if (sortBy === newSortBy) {
-      // ✅ Si ya está seleccionado, cambiar orden
       setSortOrder((prev: "asc" | "desc") => (prev === "asc" ? "desc" : "asc"))
     } else {
-      // ✅ CAMBIO: Para precio y año, empezar con desc (mayor a menor)
       setSortBy(newSortBy)
-      if (newSortBy === "price" || newSortBy === "year") {
-        setSortOrder("desc") // ✅ Mayor a menor por defecto
-      } else {
-        setSortOrder("asc") // ✅ A-Z para texto
-      }
+      setSortOrder(
+        newSortBy === "price" || newSortBy === "year" ? "desc" : "asc"
+      )
     }
   }
 
@@ -281,13 +255,11 @@ const PageHome = () => {
     setShowFilters((prev: boolean) => !prev)
   }
 
-  // ✅ LIMPIAR FILTROS - Solo marcas y años
   const handleClearFilters = () => {
-    console.log("🧹 Limpiando filtros")
     setFilters({
       priceRange: { min: 0, max: 0 },
       selectedBrands: [],
-      yearRange: { min: 1990, max: new Date().getFullYear() }, // ✅ Resetear a valores por defecto
+      yearRange: { min: 1990, max: new Date().getFullYear() },
     })
   }
 
@@ -332,6 +304,10 @@ const PageHome = () => {
               />
             </div>
           )}
+
+          <div className="mb-4">
+            <ButtonAdmin user={currentUser} />
+          </div>
 
           {/* Mostrar resultados de búsqueda FILTRADOS */}
           {searchResults.length > 0 ? (

@@ -119,14 +119,6 @@ const ButtonGoogle = () => {
           </span>
         </Button>
       </div>
-
-      {/* Debug info solo en desarrollo */}
-      {process.env.NODE_ENV === "development" && (
-        <div className="text-center text-xs text-gray-500">
-          Estado: {isMounted ? "✅ Listo" : "⏳ Cargando"} | Google ID:{" "}
-          {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "✅" : "❌"}
-        </div>
-      )}
     </div>
   )
 }

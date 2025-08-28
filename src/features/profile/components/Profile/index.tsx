@@ -425,10 +425,10 @@ const UserProfile = () => {
                             <p className="text-lg font-bold text-red-600 mb-2">
                               Estado: {getStatusText(order.status)}
                             </p>
-                            <button className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium">
+                            {/* <button className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium">
                               <Eye className="w-4 h-4" />
                               Ver detalles
-                            </button>
+                            </button> */}
                           </div>
                         </div>
                       </div>

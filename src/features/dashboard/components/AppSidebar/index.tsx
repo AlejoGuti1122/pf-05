@@ -24,6 +24,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar"
+import CreateProductButton from "@/features/home/components/CreateproductButton"
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
@@ -80,6 +81,9 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+            <div className="mt-100 w-50 ml-5">
+              <CreateProductButton />
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
