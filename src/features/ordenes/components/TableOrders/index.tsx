@@ -438,7 +438,7 @@ const OrdersTable: React.FC = () => {
                         )}
 
                         <div className="flex items-center justify-end space-x-2">
-                          {/* Botón ver detalles */}
+                          {/* Botón de detalle*/}
                           <button
                             onClick={() => handleViewDetails(order)}
                             className="inline-flex items-center p-2 border border-blue-300 rounded text-xs font-medium text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
