@@ -48,7 +48,7 @@ const ButtonGoogle = () => {
       // ✅ CREAR URL COMPLETA MANUALMENTE PARA FORZAR SELECCIÓN
       const googleClientId =
         "906975497977-j0vr60a3ijerhahsnnpsshdnaujj5et5.apps.googleusercontent.com"
-      const redirectUri = "http://localhost:3001/auth/google/redirect"
+      const redirectUri = "https://pf-grupo5-8.onrender.com"
 
       // Construir URL de Google con selección forzada
       const googleAuthUrl = new URL(
