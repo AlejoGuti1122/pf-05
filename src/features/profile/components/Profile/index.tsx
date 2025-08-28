@@ -13,7 +13,10 @@ import {
   DollarSign,
   Trash2,
   Eye,
+  ShoppingCart,
 } from "lucide-react"
+import { useFavorites } from "@/features/cart/hooks/useFavorites"
+import { useCartContext } from "@/features/cart/context"
 
 const UserProfile = () => {
   const [activeTab, setActiveTab] = useState("orders")
@@ -21,15 +24,26 @@ const UserProfile = () => {
   const [userId, setUserId] = useState<string>("")
   const [isInitialized, setIsInitialized] = useState(false)
 
+  // ✅ NUEVO: Hooks integrados
+  const {
+    favoriteProducts,
+    removeFromFavorites,
+    isLoading: favoritesLoading,
+    error: favoritesError,
+    refreshFavorites,
+  } = useFavorites()
+
+  const { addItem: addToCart, isLoading: cartLoading } = useCartContext()
+
   // Estados para órdenes - estructura corregida según tu backend
   const [orders, setOrders] = useState<any[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ordersError, setOrdersError] = useState<string | null>(null)
 
-  // Estados para favoritos - conectados al backend
-  const [favorites, setFavorites] = useState<any[]>([])
-  const [favoritesLoading, setFavoritesLoading] = useState(false)
-  const [favoritesError, setFavoritesError] = useState<string | null>(null)
+  // ✅ ELIMINAR: Estados locales de favoritos ya no son necesarios
+  // const [favorites, setFavorites] = useState<any[]>([])
+  // const [favoritesLoading, setFavoritesLoading] = useState(false)
+  // const [favoritesError, setFavoritesError] = useState<string | null>(null)
 
   // Efecto para obtener datos del usuario solo en el cliente
   useEffect(() => {
@@ -71,53 +85,51 @@ const UserProfile = () => {
     }
   }
 
-  // Función para obtener favoritos (ajusta el endpoint según tu backend)
-  const fetchFavorites = async () => {
-    if (!userId) return
-
-    setFavoritesLoading(true)
-    setFavoritesError(null)
-
-    try {
-      const response = await fetch(
-        `http://localhost:3001/users/${userId}/favorites`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${
-              localStorage.getItem("token") || localStorage.getItem("authToken")
-            }`,
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error("Error al cargar favoritos")
-      }
-
-      const favoritesData = await response.json()
-      setFavorites(favoritesData || [])
-    } catch (error: any) {
-      setFavoritesError(error.message)
-      // Si no hay endpoint de favoritos, mantener array vacío
-      setFavorites([])
-    } finally {
-      setFavoritesLoading(false)
-    }
-  }
+  // ✅ ELIMINAR: Ya no necesitamos fetchFavorites local
+  // const fetchFavorites = async () => { ... }
 
   useEffect(() => {
     if (userId && isInitialized) {
       fetchOrders()
-      // Comentado hasta que sepamos el endpoint correcto de favoritos
+      // ✅ ELIMINAR: Ya no llamamos fetchFavorites local
       // fetchFavorites();
     }
   }, [userId, isInitialized])
 
+  // ✅ NUEVO: Handler para agregar al carrito
+  const handleAddToCart = async (product: any) => {
+    if (!product.id || cartLoading) return
+
+    try {
+      await addToCart({
+        productId: product.id,
+        quantity: 1,
+      })
+    } catch (error) {
+      console.error("Error agregando al carrito:", error)
+    }
+  }
+
+  // ✅ NUEVO: Handler para eliminar favorito
+  const handleRemoveFavorite = async (productId: string) => {
+    await removeFromFavorites(productId)
+  }
+
   // Funciones helper actualizadas según tu estructura de datos
   const getTotalSpent = () => {
-    // Como no tienes campo 'total' en las órdenes, simulamos un cálculo
-    return orders.length * 50 // Placeholder - ajusta según tu lógica
+    return orders.reduce((total, order) => {
+      if (order.orderDetails?.items) {
+        // sumamos cantidad * precio unitario de cada item
+        const orderTotal = order.orderDetails.items.reduce(
+          (sum: number, item: { quantity: number; unitPrice: number }) => {
+            return sum + item.quantity * item.unitPrice
+          },
+          0
+        )
+        return total + orderTotal
+      }
+      return total
+    }, 0)
   }
 
   const getRecentOrders = (limit = 10) => {
@@ -131,8 +143,6 @@ const UserProfile = () => {
   }
 
   const totalOrders = orders.length
-
-  // Estados para favoritos (simulados - ajusta según tu API)
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -185,28 +195,8 @@ const UserProfile = () => {
     }
   }
 
-  const removeFavorite = async (productId: string) => {
-    try {
-      const response = await fetch(
-        `http://localhost:3001/users/${userId}/favorites/${productId}`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${
-              localStorage.getItem("token") || localStorage.getItem("authToken")
-            }`,
-          },
-        }
-      )
-
-      if (response.ok) {
-        setFavorites((prev) => prev.filter((item) => item.id !== productId))
-      }
-    } catch (error) {
-      console.error("Error removing favorite:", error)
-    }
-  }
+  // ✅ ELIMINAR: Ya no necesitamos removeFavorite local
+  // const removeFavorite = async (productId: string) => { ... }
 
   // Loading inicial mientras se obtienen los datos del usuario
   if (!isInitialized) {
@@ -281,13 +271,14 @@ const UserProfile = () => {
             </div>
           </div>
 
+          {/* ✅ ACTUALIZADO: Usar favoriteProducts del hook */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
             <div className="flex items-center">
               <Heart className="w-8 h-8 text-pink-600" />
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Favoritos</p>
                 <p className="text-2xl font-bold text-black">
-                  {favorites.length}
+                  {favoriteProducts.length}
                 </p>
               </div>
             </div>
@@ -333,7 +324,7 @@ const UserProfile = () => {
               >
                 <div className="flex items-center gap-2">
                   <Heart className="w-4 h-4" />
-                  Favoritos
+                  Favoritos ({favoriteProducts.length})
                 </div>
               </button>
             </nav>
@@ -447,7 +438,7 @@ const UserProfile = () => {
               </div>
             )}
 
-            {/* Tab de Favoritos */}
+            {/* ✅ ACTUALIZADO: Tab de Favoritos con hook integrado */}
             {activeTab === "favorites" && (
               <div>
                 {favoritesLoading ? (
@@ -461,13 +452,13 @@ const UserProfile = () => {
                   <div className="text-center py-8">
                     <p className="text-red-600 mb-4">Error: {favoritesError}</p>
                     <button
-                      onClick={fetchFavorites}
+                      onClick={refreshFavorites}
                       className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                     >
                       Reintentar
                     </button>
                   </div>
-                ) : favorites.length === 0 ? (
+                ) : favoriteProducts.length === 0 ? (
                   <div className="text-center py-12">
                     <Heart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-black mb-2">
@@ -482,7 +473,7 @@ const UserProfile = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {favorites.map((product) => (
+                    {favoriteProducts.map((product) => (
                       <div
                         key={product.id}
                         className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -490,7 +481,6 @@ const UserProfile = () => {
                         <div className="relative mb-4">
                           <img
                             src={
-                              product.image ||
                               product.imgUrl ||
                               "https://via.placeholder.com/200x200"
                             }
@@ -498,36 +488,60 @@ const UserProfile = () => {
                             className="w-full h-48 object-cover rounded-lg"
                           />
                           <button
-                            onClick={() => removeFavorite(product.id)}
+                            onClick={() => handleRemoveFavorite(product.id)}
                             className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-red-50 transition-colors"
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </button>
-                          {!product.inStock &&
-                            product.inStock !== undefined && (
-                              <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-semibold">
-                                  Sin Stock
-                                </span>
-                              </div>
-                            )}
+                          {product.stock <= 0 && (
+                            <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
+                              <span className="text-white font-semibold">
+                                Sin Stock
+                              </span>
+                            </div>
+                          )}
                         </div>
 
-                        <h3 className="font-semibold text-black mb-2">
-                          {product.name || "Producto sin nombre"}
-                        </h3>
-                        <p className="text-2xl font-bold text-red-600 mb-4">
-                          ${(product.price || 0).toFixed(2)}
-                        </p>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex justify-between items-start">
+                            <span className="text-sm font-semibold text-red-500 uppercase tracking-wider">
+                              {product.brand}
+                            </span>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                              {product.model}
+                            </span>
+                          </div>
+
+                          <h3 className="font-semibold text-black line-clamp-2">
+                            {product.name || "Producto sin nombre"}
+                          </h3>
+
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Calendar className="w-4 h-4" />
+                            <span>{product.year}</span>
+                          </div>
+
+                          <p className="text-2xl font-bold text-red-600">
+                            ${product.price?.toLocaleString() || 0}
+                          </p>
+                        </div>
 
                         <div className="flex gap-2">
                           <button
-                            disabled={product.inStock === false}
-                            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:cursor-not-allowed"
+                            onClick={() => handleAddToCart(product)}
+                            disabled={product.stock <= 0 || cartLoading}
+                            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
                           >
-                            {product.inStock === false
+                            {cartLoading ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <ShoppingCart className="w-4 h-4" />
+                            )}
+                            {cartLoading
+                              ? "Agregando..."
+                              : product.stock <= 0
                               ? "Sin Stock"
-                              : "Agregar al Carrito"}
+                              : "Agregar"}
                           </button>
                         </div>
                       </div>

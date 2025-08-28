@@ -1,17 +1,19 @@
-// components/ProductDetailModal.tsx
+// components/ProductDetailModal.tsx - ACTUALIZADO CON FAVORITOS DEL BACKEND
 import React, { useEffect } from "react"
 import { X, Heart, Loader2, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import Product from "../../types/products"
 import useProductDetail from "../../hooks/useProductsDetail"
+import { useFavorites } from "../../../cart/hooks/useFavorites"
 
 interface ProductDetailModalProps {
   isOpen: boolean
   product: Product | null
   onClose: () => void
   onAddToCart: (product: Product) => void
-  onToggleFavorite: (product: Product) => void
-  isFavorite: boolean
+  // ✅ REMOVER: Ya no necesitamos estas props
+  // onToggleFavorite: (product: Product) => void
+  // isFavorite: boolean
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -19,11 +21,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
   onClose,
   onAddToCart,
-  onToggleFavorite,
-  isFavorite,
+  // onToggleFavorite, // ✅ REMOVER
+  // isFavorite,      // ✅ REMOVER
 }) => {
   const { productDetail, loading, error, fetchProductDetail, clearDetail } =
     useProductDetail()
+
+  // ✅ NUEVO: Hook de favoritos del backend
+  const {
+    toggleFavorite,
+    isFavorite,
+    isLoading: favoritesLoading,
+  } = useFavorites()
 
   // Función para obtener el ID del producto
   const getProductId = (product: Product) => {
@@ -35,6 +44,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     // Si necesitas generar ID de otra forma, ajusta aquí
     return null
   }
+
+  // ✅ NUEVO: Handler interno para favoritos
+  const handleToggleFavorite = async () => {
+    if (!product?.id) {
+      console.error("❌ Producto sin ID válido:", product)
+      return
+    }
+
+    await toggleFavorite(product.id)
+  }
+
+  // ✅ NUEVO: Verificar si es favorito usando el ID del producto
+  const isProductFavorite = product ? isFavorite(product.id) : false
 
   useEffect(() => {
     if (isOpen && product) {
@@ -124,6 +146,31 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       ? `Stock: ${displayProduct.stock}`
                       : "Sin Stock"}
                   </div>
+
+                  {/* ✅ NUEVO: Botón de favorito en la imagen */}
+                  <button
+                    onClick={handleToggleFavorite}
+                    disabled={favoritesLoading}
+                    className={`absolute top-4 right-4 p-3 rounded-full transition-all duration-300 ${
+                      isProductFavorite
+                        ? "bg-red-500 text-white shadow-lg"
+                        : "bg-white/80 text-gray-600 hover:bg-red-500 hover:text-white"
+                    } backdrop-blur-sm ${
+                      favoritesLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {favoritesLoading ? (
+                      <Loader2
+                        size={20}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Heart
+                        size={20}
+                        fill={isProductFavorite ? "currentColor" : "none"}
+                      />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -249,15 +296,34 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       : "No Disponible"}
                   </button>
 
+                  {/* ✅ ACTUALIZADO: Botón de favoritos con estado del backend */}
                   <button
-                    onClick={() => onToggleFavorite(product)} // Usar el producto original
-                    className="w-full py-3 px-6 border-2 border-red-500 text-red-500 hover:bg-red-50 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                    onClick={handleToggleFavorite}
+                    disabled={favoritesLoading}
+                    className={`w-full py-3 px-6 border-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
+                      isProductFavorite
+                        ? "border-red-500 bg-red-500 text-white hover:bg-red-600"
+                        : "border-red-500 text-red-500 hover:bg-red-50"
+                    } ${
+                      favoritesLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
                   >
-                    <Heart
-                      size={20}
-                      fill={isFavorite ? "currentColor" : "none"}
-                    />
-                    {isFavorite ? "Quitar de Favoritos" : "Agregar a Favoritos"}
+                    {favoritesLoading ? (
+                      <Loader2
+                        size={20}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Heart
+                        size={20}
+                        fill={isProductFavorite ? "currentColor" : "none"}
+                      />
+                    )}
+                    {favoritesLoading
+                      ? "Procesando..."
+                      : isProductFavorite
+                      ? "Quitar de Favoritos"
+                      : "Agregar a Favoritos"}
                   </button>
                 </div>
               </div>

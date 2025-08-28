@@ -1,28 +1,39 @@
-// components/ProductCard.tsx
+// components/ProductCard.tsx - ACTUALIZADO CON FAVORITOS INTEGRADOS
 import React from "react"
 import { ShoppingCart, Heart, Calendar, Cog, Loader2 } from "lucide-react"
 import Image from "next/image"
 import Product from "../../types/products"
 import { useCart } from "../../../cart/hooks/useCart"
+import { useFavorites } from "@/features/cart/hooks/useFavorites"
 
 interface ProductCardProps {
   product: Product
-  onToggleFavorite?: (product: Product) => void
   onProductClick?: (product: Product) => void
-  isFavorite?: boolean
+  // ✅ ELIMINAR: Ya no necesitamos estas props
+  // onToggleFavorite?: (product: Product) => void
+  // isFavorite?: boolean
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
-  onToggleFavorite,
   onProductClick,
-  isFavorite = false,
+  // onToggleFavorite, // ✅ ELIMINAR
+  // isFavorite = false, // ✅ ELIMINAR
 }) => {
   console.log("🔧 ProductCard cargado para:", product.name)
   const { addItem, isLoading } = useCart()
   console.log("🎯 useCart hook loaded:", { addItem: !!addItem, isLoading })
 
+  // ✅ NUEVO: Hook de favoritos integrado
+  const {
+    toggleFavorite,
+    isFavorite,
+    isLoading: favoritesLoading,
+  } = useFavorites()
+
   const isInStock = product.stock > 0
+  // ✅ NUEVO: Verificar si es favorito usando el ID del producto
+  const isProductFavorite = isFavorite(product.id)
 
   const handleCardClick = () => {
     if (onProductClick) {
@@ -62,11 +73,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
   }
 
-  const handleToggleFavorite = (e: React.MouseEvent) => {
+  // ✅ NUEVO: Handler interno para favoritos
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (onToggleFavorite) {
-      onToggleFavorite(product)
+
+    if (!product.id) {
+      console.error("❌ Producto sin ID válido:", product)
+      return
     }
+
+    console.log("❤️ Toggle favorite para:", product.id, product.name)
+    await toggleFavorite(product.id)
   }
 
   return (
@@ -101,19 +118,27 @@ const ProductCard: React.FC<ProductCardProps> = ({
           {isInStock ? `Stock: ${product.stock}` : "Sin Stock"}
         </div>
 
-        {/* Botón de favoritos */}
+        {/* ✅ ACTUALIZADO: Botón de favoritos con loading */}
         <button
           onClick={handleToggleFavorite}
+          disabled={favoritesLoading}
           className={`absolute top-2 right-2 p-2 rounded-full transition-colors ${
-            isFavorite
-              ? "bg-red-500 text-white"
-              : "bg-white text-gray-600 hover:bg-red-50"
-          }`}
+            isProductFavorite
+              ? "bg-red-500 text-white shadow-lg"
+              : "bg-white text-gray-600 hover:bg-red-50 hover:text-red-500"
+          } ${favoritesLoading ? "opacity-50 cursor-not-allowed" : ""}`}
         >
-          <Heart
-            size={16}
-            fill={isFavorite ? "currentColor" : "none"}
-          />
+          {favoritesLoading ? (
+            <Loader2
+              size={16}
+              className="animate-spin"
+            />
+          ) : (
+            <Heart
+              size={16}
+              fill={isProductFavorite ? "currentColor" : "none"}
+            />
+          )}
         </button>
       </div>
 
