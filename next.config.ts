@@ -1,17 +1,17 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*', // ← AGREGAR /api
+        source: "/api/:path*",
+        destination: "https://pf-grupo5-8.onrender.com/api/:path*", // ← AGREGAR /api
       },
-    ];
+    ]
   },
   images: {
     unoptimized: true,
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig
