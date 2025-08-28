@@ -63,14 +63,17 @@ const UserProfile = () => {
     setOrdersError(null)
 
     try {
-      const response = await fetch(`http://localhost:3001/users/${userId}`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${
-            localStorage.getItem("token") || localStorage.getItem("authToken")
-          }`,
-        },
-      })
+      const response = await fetch(
+        `https://pf-grupo5-8.onrender.com/users/${userId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${
+              localStorage.getItem("token") || localStorage.getItem("authToken")
+            }`,
+          },
+        }
+      )
 
       if (!response.ok) {
         throw new Error("Error al cargar órdenes")
