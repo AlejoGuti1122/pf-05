@@ -418,6 +418,25 @@ const OrdersTable: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
+                        {/* Botón aprobar - solo si está en preparación Y es admin */}
+                        {order.status === "onPreparation" && isUserAdmin && (
+                          <button
+                            onClick={() => handleApproveOrder(order.id)}
+                            disabled={actionLoading === order.id || isApproving}
+                            className="inline-flex items-center px-3 py-1 border border-green-300 rounded text-xs font-medium text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Aprobar orden"
+                          >
+                            {actionLoading === order.id ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700 mr-1" />
+                            ) : (
+                              <Check className="h-3 w-3 mr-1" />
+                            )}
+                            {actionLoading === order.id
+                              ? "Aprobando..."
+                              : "Aprobar"}
+                          </button>
+                        )}
+
                         <div className="flex items-center justify-end space-x-2">
                           {/* Botón ver detalles */}
                           <button
@@ -427,27 +446,6 @@ const OrdersTable: React.FC = () => {
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-
-                          {/* Botón aprobar - solo si está en preparación Y es admin */}
-                          {order.status === "onPreparation" && isUserAdmin && (
-                            <button
-                              onClick={() => handleApproveOrder(order.id)}
-                              disabled={
-                                actionLoading === order.id || isApproving
-                              }
-                              className="inline-flex items-center px-3 py-1 border border-green-300 rounded text-xs font-medium text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Aprobar orden"
-                            >
-                              {actionLoading === order.id ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700 mr-1" />
-                              ) : (
-                                <Check className="h-3 w-3 mr-1" />
-                              )}
-                              {actionLoading === order.id
-                                ? "Aprobando..."
-                                : "Aprobar"}
-                            </button>
-                          )}
 
                           {/* Mostrar mensaje si no es admin */}
                           {order.status === "onPreparation" && !isUserAdmin && (
