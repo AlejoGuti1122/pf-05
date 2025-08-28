@@ -33,9 +33,7 @@ const getURLConfig = (): URLConfig => {
     return {
       API_URL:
         process.env.NEXT_PUBLIC_API_URL || "https://pf-grupo5-8.onrender.com",
-      BASE_URL:
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        "https://tu-frontend-domain.vercel.app",
+      BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || "https://pf-05.vercel.app/",
       isDevelopment: false,
       isProduction: true,
     }
