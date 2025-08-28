@@ -35,7 +35,7 @@ const OrdersTable: React.FC = () => {
     setPage,
     clearError,
   } = useOrders({
-    // Quitar initialParams ya que tu backend no los usa
+    initialParams: { status: "onPreparation" as any }, // Filtrar solo órdenes en preparación
     autoFetch: true,
   })
 
@@ -128,14 +128,16 @@ const OrdersTable: React.FC = () => {
     )
   }
 
-  // Formatear precio colombiano
+  // Formatear precio colombiano (sin $ adicional)
   const formatPrice = (price: number, currency: string = "COP"): string => {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
       currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(price)
+    })
+      .format(price)
+      .replace(/^\$/, "") // Remover el $ del inicio
   }
 
   // Formatear fecha en formato colombiano con "de"
