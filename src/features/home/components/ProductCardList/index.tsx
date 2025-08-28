@@ -1,4 +1,4 @@
-// components/ProductCardsList.tsx
+// components/ProductCardsList.tsx - VERSIÓN CON FAVORITOS INTEGRADOS
 import React, { useState } from "react"
 import {
   Filter,
@@ -15,8 +15,10 @@ import ProductDetailModal from "../ProductDetailModal"
 import { FilterState } from "../../types/filters"
 import useProductsFiltered from "../../hooks/useFilters"
 
+
 import Image from "next/image"
 import { useCartContext } from "../../../cart/context/index"
+import { useFavorites } from "@/features/cart/hooks/useFavorites"
 
 interface ProductCardsListProps {
   filters?: FilterState
@@ -31,8 +33,14 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
   sortOrder: externalSortOrder = "asc",
   className = "",
 }) => {
-  // Estados principales
-  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  // ✅ REEMPLAZAR: Estado local de favoritos por hook del backend
+  // const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const { 
+    toggleFavorite, 
+    isFavorite, 
+    favoriteIds,
+    isLoading: favoritesLoading 
+  } = useFavorites()
 
   // ✅ Agregar el hook del carrito:
   const { addItem, isLoading: cartLoading, itemCount } = useCartContext()
@@ -79,27 +87,24 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
       .filter((product) => product.stock > 0)
   }, [allProducts])
 
-  // Handlers
-  const handleToggleFavorite = (product: Product) => {
-    const productId = `${product.name}-${product.brand}`
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev)
-      if (newFavorites.has(productId)) {
-        newFavorites.delete(productId)
-      } else {
-        newFavorites.add(productId)
-      }
-      return newFavorites
-    })
+  // ✅ NUEVO: Handler para favoritos con backend
+  const handleToggleFavorite = async (product: Product) => {
+    if (!product.id) {
+      console.error("❌ Producto sin ID válido:", product)
+      return
+    }
+
+    console.log("❤️ Toggling favorite para producto:", product.id, product.name)
+    await toggleFavorite(product.id)
   }
 
-  const handleToggleFavoriteWithEvent = (
+  const handleToggleFavoriteWithEvent = async (
     e: React.MouseEvent,
     product: Product
   ) => {
     e.preventDefault()
     e.stopPropagation()
-    handleToggleFavorite(product)
+    await handleToggleFavorite(product)
   }
 
   // ✅ Nueva función integrada con el backend:
@@ -218,11 +223,11 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
           </p>
         </div>
 
-        {/* Contadores - ✅ Actualizado para usar el carrito del backend */}
+        {/* ✅ ACTUALIZADO: Contadores con favoritos del backend */}
         <div className="flex gap-4">
           <div className="text-center">
             <p className="text-sm text-gray-500">Favoritos</p>
-            <p className="text-xl font-bold text-red-500">{favorites.size}</p>
+            <p className="text-xl font-bold text-red-500">{favoriteIds.length}</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-gray-500">En carrito</p>
@@ -235,8 +240,8 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
       {products.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product, index) => {
-            const productId = `${product.name}-${product.brand}`
-            const isFavorite = favorites.has(productId)
+            // ✅ CAMBIO: Usar ID real del producto para verificar favoritos
+            const isProductFavorite = isFavorite(product.id)
             const isOutOfStock = product.stock <= 0
 
             return (
@@ -259,20 +264,25 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
                     {getStockBadge(product.stock)}
                   </div>
 
-                  {/* Botón de favorito */}
+                  {/* ✅ ACTUALIZADO: Botón de favorito con loading */}
                   <button
                     onClick={(e) => handleToggleFavoriteWithEvent(e, product)}
+                    disabled={favoritesLoading}
                     className={`absolute top-4 right-4 p-2 rounded-full transition-all duration-300 z-10 ${
-                      isFavorite
+                      isProductFavorite
                         ? "bg-red-500 text-white shadow-lg"
                         : "bg-white/80 text-gray-600 hover:bg-red-500 hover:text-white"
-                    } backdrop-blur-sm`}
+                    } backdrop-blur-sm ${favoritesLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     type="button"
                   >
-                    <Heart
-                      size={18}
-                      fill={isFavorite ? "currentColor" : "none"}
-                    />
+                    {favoritesLoading ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Heart
+                        size={18}
+                        fill={isProductFavorite ? "currentColor" : "none"}
+                      />
+                    )}
                   </button>
 
                   {/* Overlay con botones de acción */}
@@ -407,18 +417,12 @@ const ProductCardsList: React.FC<ProductCardsListProps> = ({
         </div>
       )}
 
-      {/* Modal de detalle */}
+      {/* ✅ ACTUALIZADO: Modal de detalle con favoritos integrados */}
       <ProductDetailModal
         isOpen={showProductDetail}
         product={selectedProduct}
         onClose={() => setShowProductDetail(false)}
         onAddToCart={handleAddToCart}
-        onToggleFavorite={handleToggleFavorite}
-        isFavorite={
-          selectedProduct
-            ? favorites.has(`${selectedProduct.name}-${selectedProduct.brand}`)
-            : false
-        }
       />
     </div>
   )
