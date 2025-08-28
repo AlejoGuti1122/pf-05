@@ -185,13 +185,6 @@ const OrdersTable: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Modal de detalles */}
-      <OrderDetailModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        order={selectedOrder}
-      />
     </div>
   )
 
@@ -283,14 +276,6 @@ const OrdersTable: React.FC = () => {
               onClose={clearError}
             />
           )}
-
-          {/* Debug temporal */}
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-sm text-yellow-800">
-              Debug: Órdenes recibidas: {safeOrders.length} | Loading:{" "}
-              {loading ? "Sí" : "No"} | Error: {error || "Ninguno"}
-            </p>
-          </div>
 
           {/* Tabla de órdenes */}
           <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
@@ -513,6 +498,13 @@ const OrdersTable: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de detalles - MOVIDO AQUÍ FUERA DEL ErrorMessage */}
+      <OrderDetailModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        order={selectedOrder}
+      />
     </div>
   )
 }

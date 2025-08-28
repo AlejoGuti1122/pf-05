@@ -83,7 +83,7 @@ const CreateProductButton: React.FC<CreateProductButtonProps> = ({
 
             {/* Efecto de brillo */}
             <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-xl"
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-xl w-5"
               animate={{
                 x: ["-100%", "100%"],
               }}
