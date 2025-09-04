@@ -177,59 +177,35 @@ class AuthService {
     return result
   }
 
-  async register(userData: RegisterData): Promise<AuthResponse> {
-    console.log("📤 REGISTRANDO CON:", userData)
-    console.log("📤 URL REGISTER:", getApiUrl("/auth/register")) // URLs dinámicas
-
-    let requestOptions: RequestInit
-
-    if (userData instanceof FormData) {
-      // Para FormData, no usar JSON.stringify ni agregar Content-Type
-      requestOptions = {
-        method: "POST",
-        body: userData, // FormData directamente
-      }
-      console.log("📤 Enviando FormData con archivo")
-      
-      // Debug para FormData
-      for (const [key, value] of userData.entries()) {
-        console.log(`FormData ${key}:`, typeof value === 'object' ? value.constructor.name : value)
-      }
-    } else {
-      // Para objeto regular usar JSON
-      requestOptions = {
-        method: "POST",
-        body: JSON.stringify(userData),
-      }
-      console.log("📤 Enviando JSON sin archivo")
+  async register(userData: RegisterData): Promise<any> {
+  console.log("📤 REGISTRANDO CON:", userData)
+  console.log("📤 URL REGISTER:", getApiUrl("/auth/register")) // URLs dinámicas
+  let requestOptions: RequestInit
+  if (userData instanceof FormData) {
+    // Para FormData, no usar JSON.stringify ni agregar Content-Type
+    requestOptions = {
+      method: "POST",
+      body: userData, // FormData directamente
     }
-
-    const data = await this.makeRequest("/auth/register", requestOptions)
-
-    console.log("✅ REGISTER RESPONSE:", data)
-
-    // Aplicar la misma lógica que en login
-    const token =
-      data.access_Token || data.accessToken || data.token || data.access_token
-    let user = data.user || null
-
-    if (!user && token) {
-      user = this.decodeJWT(token)
+    console.log("📤 Enviando FormData con archivo")
+    
+    // Debug para FormData
+    for (const [key, value] of userData.entries()) {
+      console.log(`FormData ${key}:`, typeof value === 'object' ? value.constructor.name : value)
     }
-
-    if (!token) {
-      throw new Error("No se recibió token de autenticación")
+  } else {
+    // Para objeto regular usar JSON
+    requestOptions = {
+      method: "POST",
+      body: JSON.stringify(userData),
     }
-
-    if (!user) {
-      throw new Error("No se recibieron datos del usuario")
-    }
-
-    this.saveToken(token)
-    this.saveUser(user)
-
-    return { token, user }
+    console.log("📤 Enviando JSON sin archivo")
   }
+  const data = await this.makeRequest("/auth/register", requestOptions)
+  console.log("✅ REGISTER RESPONSE:", data)
+  // No esperar token ni usuario, solo devolver la respuesta del backend
+  return data
+}
 
   // Función logout con URLs dinámicas
   async logout(): Promise<void> {
