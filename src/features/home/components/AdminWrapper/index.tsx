@@ -87,14 +87,7 @@ const AdminProtectedWrapper: React.FC<AdminProtectedWrapperProps> = ({
   return (
     <>
       {/* Header de confirmación admin */}
-      <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-3 text-center">
-        <div className="flex items-center justify-center gap-2 text-sm">
-          <ShieldCheck className="w-4 h-4" />
-          <span>
-            Sesión de administrador activa - {user?.name || user?.email}
-          </span>
-        </div>
-      </div>
+     
 
       {/* Contenido protegido */}
       {children}

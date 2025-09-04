@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Users,
   BarChart3,
+  Wrench,
 } from "lucide-react"
 
 import {
@@ -32,6 +33,10 @@ const menuItems = [
   { title: "Órdenes", url: "/ordenes", icon: ShoppingCart },
 
   { title: "Ventas", url: "/ventas", icon: BarChart3 },
+
+  { title: "Crear repuesto", url: "/form", icon: Wrench },
+
+  { title: "Modificar repuesto", url: "/form", icon: Package },
 ]
 
 export function AppSidebar() {
@@ -81,9 +86,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
-            <div className="mt-100 w-50 ml-5">
-              <CreateProductButton />
-            </div>
+            
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
