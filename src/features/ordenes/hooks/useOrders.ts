@@ -1,5 +1,4 @@
-// hooks/useOrders.ts
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useMemo } from "react"
 import OrderService from "../services/service-orders"
 import {
@@ -20,6 +19,14 @@ interface UseOrdersState {
   hasNextPage: boolean
   hasPrevPage: boolean
   stats?: OrderStats
+}
+
+interface UseOrdersDerived {
+  /** conteos globales (independientes del filtro activo) */
+  pendingOrders: number
+  approvedOrders: number
+  deliveredOrders: number
+  canceledOrders: number
 }
 
 interface UseOrdersActions {
@@ -48,14 +55,37 @@ interface UseOrdersOptions {
   includeDashboard?: boolean
 }
 
-export const useOrders = (
-  options: UseOrdersOptions = {}
-): UseOrdersState & UseOrdersActions => {
-  const {
-    initialParams = {},
-    autoFetch = true,
-    includeDashboard = false,
-  } = options
+export type UseOrdersReturn = UseOrdersState &
+  UseOrdersDerived &
+  UseOrdersActions
+
+const PAGE_SIZE_DEFAULT = 10
+
+const normalize = (v?: string) =>
+  (v || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, "")
+
+/** Mapa Front (es) -> Back (en) */
+const STATUS_MAP: Record<string, string[]> = {
+  enpreparacion: ["onpreparation", "enpreparacion"],
+  aprobada: ["approved"],
+  entransito: ["intransit"],
+  entregada: ["delivered", "completed"],
+  cancelada: ["cancelled", "canceled"],
+  devuelta: ["returned"],
+}
+
+// Aprobada si status=approved O paymentStatus=approved
+const isApprovedOrder = (o: any) =>
+  normalize(o?.status) === "approved" ||
+  normalize(o?.paymentStatus) === "approved"
+
+export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
+  const { initialParams = {}, autoFetch = true, includeDashboard = false } =
+    options
 
   const [state, setState] = useState<UseOrdersState>({
     orders: [],
@@ -68,96 +98,52 @@ export const useOrders = (
     hasPrevPage: false,
   })
 
+  // Filtros persistentes
   const [filters, setFiltersState] = useState<GetOrdersParams>(initialParams)
 
-  // Función para actualizar el estado
+  // Dataset completo para filtrado/contadores globales
+  const [allOrders, setAllOrders] = useState<Order[]>([])
+  const [pageSize] = useState<number>(PAGE_SIZE_DEFAULT)
+
+  const hasActiveFilter = useMemo(
+    () => !!(filters.status || (filters.search && filters.search.trim().length)),
+    [filters.status, filters.search]
+  )
+
   const updateState = useCallback((updates: Partial<UseOrdersState>) => {
     setState((prev) => ({ ...prev, ...updates }))
   }, [])
 
-  // Función principal para obtener órdenes
+  // -------- Fetch de una página (modo normal)
   const fetchOrders = useCallback(
     async (params: GetOrdersParams = {}) => {
       updateState({ loading: true, error: null })
-
       try {
-        // Backend espera llamada simple sin parámetros
-        const finalParams = {} // Sin filtros ni parámetros
+        const { page, limit } = params
+        const response = await OrderService.getOrders({ page, limit })
 
-        console.log("🔥 fetchOrders llamado con params:", params)
-        console.log("🔥 filters actuales:", filters)
-        console.log("🔥 finalParams que se enviarán:", finalParams)
-        console.log("🚨 Llamando backend SIN parámetros")
-
-        const response = await OrderService.getOrders(finalParams)
-
-        console.log("🔥 Response exitosa:", response)
-
-        // Verificar la estructura de la respuesta
-        if (response && typeof response === "object") {
-          // Caso 1: Respuesta paginada estándar
-          if (response.data && response.meta) {
-            updateState({
-              orders: Array.isArray(response.data) ? response.data : [],
-              totalOrders: response.meta.total || 0,
-              currentPage: response.meta.page || 1,
-              totalPages: response.meta.totalPages || 1,
-              hasNextPage:
-                (response.meta.page || 1) < (response.meta.totalPages || 1),
-              hasPrevPage: (response.meta.page || 1) > 1,
-              loading: false,
-            })
-          }
-          // Caso 2: Array directo de órdenes (ESTE ES TU CASO)
-          else if (Array.isArray(response)) {
-            console.log("🔥 Array de órdenes recibido:", response)
-            updateState({
-              orders: response,
-              totalOrders: response.length,
-              currentPage: 1,
-              totalPages: 1,
-              hasNextPage: false,
-              hasPrevPage: false,
-              loading: false,
-            })
-          }
-          // Caso 3: Objeto individual
-          else if (
-            "userId" in response ||
-            "id" in response ||
-            "summary" in response
-          ) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const orderObj = response as unknown as any
-
-            // Verificar si parece ser una orden válida
-            const hasValidId = orderObj.id !== null && orderObj.id !== undefined
-            const orderArray = hasValidId ? [orderObj] : []
-
-            updateState({
-              orders: orderArray,
-              totalOrders: orderArray.length,
-              currentPage: 1,
-              totalPages: 1,
-              hasNextPage: false,
-              hasPrevPage: false,
-              loading: false,
-            })
-          }
-          // Caso 4: Respuesta vacía o estructura desconocida
-          else {
-            updateState({
-              orders: [],
-              totalOrders: 0,
-              currentPage: 1,
-              totalPages: 1,
-              hasNextPage: false,
-              hasPrevPage: false,
-              loading: false,
-            })
-          }
+        if (response?.data && response?.meta) {
+          updateState({
+            orders: Array.isArray(response.data) ? response.data : [],
+            totalOrders: response.meta.total || 0,
+            currentPage: response.meta.page || 1,
+            totalPages: response.meta.totalPages || 1,
+            hasNextPage:
+              (response.meta.page || 1) < (response.meta.totalPages || 1),
+            hasPrevPage: (response.meta.page || 1) > 1,
+            loading: false,
+          })
+        } else if (Array.isArray(response)) {
+          updateState({
+            orders: response,
+            totalOrders: response.length,
+            currentPage: 1,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPrevPage: false,
+            loading: false,
+          })
         } else {
-          // Respuesta inválida
           updateState({
             orders: [],
             totalOrders: 0,
@@ -177,10 +163,42 @@ export const useOrders = (
         })
       }
     },
-    [filters, updateState]
+    [updateState]
   )
 
-  // Obtener estadísticas para dashboard
+  // -------- Fetch de todas las páginas (para filtros/contadores globales)
+  const loadAllOrders = useCallback(async () => {
+    try {
+      // NO tocamos state.loading para no parpadear la tabla
+      const first = await OrderService.getOrders({ page: 1, limit: pageSize })
+
+      let items: Order[] = []
+      let totalPages = 1
+
+      if (first?.data && first?.meta) {
+        items = [...first.data]
+        totalPages = first.meta.totalPages || 1
+
+        const promises: Promise<any>[] = []
+        for (let p = 2; p <= totalPages; p++) {
+          promises.push(OrderService.getOrders({ page: p, limit: pageSize }))
+        }
+        if (promises.length) {
+          const pages = await Promise.all(promises)
+          for (const r of pages) if (r?.data) items = items.concat(r.data)
+        }
+      } else if (Array.isArray(first)) {
+        items = first
+      }
+
+      setAllOrders(items)
+    } catch (err) {
+      console.error("🔥 Error cargando todas las órdenes:", err)
+      setAllOrders([])
+    }
+  }, [pageSize])
+
+  // -------- Stats (opcional, por si tu backend da contadores)
   const fetchOrderStats = useCallback(async () => {
     try {
       const stats = await OrderService.getOrderStats()
@@ -190,14 +208,17 @@ export const useOrders = (
     }
   }, [updateState])
 
-  // Crear orden
+  // -------- Crear
   const createOrder = useCallback(
     async (orderData: CreateOrderRequest): Promise<boolean> => {
       updateState({ loading: true, error: null })
-
       try {
         await OrderService.createOrder(orderData)
-        await fetchOrders() // Refrescar la lista
+        // refrescar lista visible y dataset global
+        await Promise.all([
+          fetchOrders({ page: 1, limit: pageSize }),
+          loadAllOrders(),
+        ])
         updateState({ loading: false })
         return true
       } catch (error) {
@@ -209,31 +230,31 @@ export const useOrders = (
         return false
       }
     },
-    [fetchOrders, updateState]
+    [fetchOrders, loadAllOrders, pageSize, updateState]
   )
 
-  // Actualizar estado de orden
+  // -------- Actualizar estado
   const updateOrderStatus = useCallback(
-    async (
-      orderId: string,
-      status: OrderStatus,
-      notes?: string
-    ): Promise<boolean> => {
+    async (orderId: string, status: OrderStatus, notes?: string) => {
       updateState({ error: null })
-
       try {
         await OrderService.updateOrderStatus(orderId, status, notes)
-
-        // Actualizar la orden en el estado local
+        // reflejar cambio local en ambos datasets
         setState((prev) => ({
           ...prev,
-          orders: prev.orders.map((order) =>
-            order.id === orderId
-              ? { ...order, status, updatedAt: new Date().toISOString() }
-              : order
+          orders: prev.orders.map((o) =>
+            o.id === orderId
+              ? { ...o, status, updatedAt: new Date().toISOString() as any }
+              : o
           ),
         }))
-
+        setAllOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId
+              ? { ...o, status, updatedAt: new Date().toISOString() as any }
+              : o
+          )
+        )
         return true
       } catch (error) {
         updateState({
@@ -248,173 +269,186 @@ export const useOrders = (
     [updateState]
   )
 
-  // Aprobar orden
   const approveOrder = useCallback(
-    async (orderId: string, notes?: string): Promise<boolean> => {
-      return updateOrderStatus(orderId, "Aprobada", notes)
-    },
+    async (orderId: string, notes?: string) =>
+      updateOrderStatus(orderId, "Aprobada", notes),
     [updateOrderStatus]
   )
-
-  // Cancelar orden
   const cancelOrder = useCallback(
-    async (orderId: string, notes?: string): Promise<boolean> => {
-      return updateOrderStatus(orderId, "Cancelada", notes)
-    },
+    async (orderId: string, notes?: string) =>
+      updateOrderStatus(orderId, "Cancelada", notes),
     [updateOrderStatus]
   )
-
-  // Entregar orden
   const deliverOrder = useCallback(
-    async (orderId: string, notes?: string): Promise<boolean> => {
-      return updateOrderStatus(orderId, "Entregada", notes)
-    },
+    async (orderId: string, notes?: string) =>
+      updateOrderStatus(orderId, "Entregada", notes),
     [updateOrderStatus]
   )
 
-  // Buscar órdenes (filtro local)
+  // -------- Filtros persistentes
   const searchOrders = useCallback(async (searchTerm: string) => {
-    // Como no enviamos parámetros al backend, este método podría hacer filtrado local
     setFiltersState((prev) => ({ ...prev, search: searchTerm }))
   }, [])
 
-  // Filtrar por estado (filtro local)
   const filterByStatus = useCallback(async (status: OrderStatus | null) => {
-    // Como no enviamos parámetros al backend, este método podría hacer filtrado local
     setFiltersState((prev) => ({ ...prev, status: status || undefined }))
   }, [])
 
-  // Refrescar órdenes
+  // -------- Refresh
   const refreshOrders = useCallback(async () => {
-    await fetchOrders()
-    if (includeDashboard) {
-      await fetchOrderStats()
-    }
-  }, [fetchOrders, fetchOrderStats, includeDashboard])
+    await Promise.all([
+      fetchOrders({ page: state.currentPage, limit: pageSize }),
+      loadAllOrders(),
+      includeDashboard ? fetchOrderStats() : Promise.resolve(),
+    ])
+  }, [
+    fetchOrders,
+    state.currentPage,
+    pageSize,
+    loadAllOrders,
+    fetchOrderStats,
+    includeDashboard,
+  ])
 
-  // Cambiar página (sin efecto real ya que no hay paginación)
+  // -------- Paginación
   const setPage = useCallback(
     (page: number) => {
-      // Si no hay paginación real, solo actualizamos el estado local
       updateState({ currentPage: page })
+      // si no hay filtro activo, pedimos al backend esa página
+      if (!hasActiveFilter) {
+        fetchOrders({ page, limit: pageSize })
+      }
+      // con filtro activo, la paginación es local (no hacemos fetch aquí)
     },
-    [updateState]
+    [fetchOrders, updateState, hasActiveFilter, pageSize]
   )
 
-  // Actualizar filtros
-  const setFilters = useCallback(
-    (newFilters: Partial<GetOrdersParams>) => {
-      const updatedFilters = { ...filters, ...newFilters }
-      setFiltersState(updatedFilters)
-      // No llamamos fetchOrders ya que no enviamos parámetros al backend
-    },
-    [filters]
-  )
+  const setFilters = useCallback((newFilters: Partial<GetOrdersParams>) => {
+    setFiltersState((prev) => ({ ...prev, ...newFilters }))
+  }, [])
 
-  // Limpiar error
   const clearError = useCallback(() => {
     updateState({ error: null })
   }, [updateState])
 
-  // Obtener órdenes automáticamente al montar el componente
+  // -------- Auto-load inicial: una página para la tabla + todas para contadores/filtros
   useEffect(() => {
     if (autoFetch) {
-      fetchOrders()
-      if (includeDashboard) {
-        fetchOrderStats()
+      fetchOrders({ page: 1, limit: pageSize })
+      loadAllOrders()
+      if (includeDashboard) fetchOrderStats()
+    }
+  }, []) // mount only
+
+  // Cuando cambian los filtros: resetear página y (si hay filtro) no pegamos al backend
+  useEffect(() => {
+    if (hasActiveFilter && state.currentPage !== 1) {
+      updateState({ currentPage: 1 })
+    }
+  }, [hasActiveFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- Filtrado + paginación local en “modo filtro” ----------
+  const filteredAll = useMemo(() => {
+    if (!hasActiveFilter) return []
+    let list = allOrders
+
+    if (filters.status) {
+      const t = normalize(filters.status as string)
+      if (t === "approved") {
+        list = list.filter((o) => isApprovedOrder(o))
+      } else if (t === "onpreparation") {
+        list = list.filter((o) => normalize(o.status) === "onpreparation")
+      } else {
+        const accepted = STATUS_MAP[t] || [t]
+        list = list.filter((o) => accepted.includes(normalize(o.status)))
       }
     }
-  }, []) // Solo se ejecuta una vez al montar
 
-  // Datos derivados con filtrado local
-  const derivedData = useMemo(() => {
-    // Aplicar filtros localmente
-    let filteredOrders = state.orders
-
-    // Filtrar por estado si existe
-    if (filters.status) {
-      filteredOrders = filteredOrders.filter(
-        (order) => order.status === filters.status
-      )
-    }
-
-    // Filtrar por búsqueda si existe
     if (filters.search) {
-      const searchTerm = filters.search.toLowerCase()
-      filteredOrders = filteredOrders.filter(
-        (order) =>
-          order.id?.toLowerCase().includes(searchTerm) ||
-          order.userId?.toLowerCase().includes(searchTerm)
+      const q = normalize(filters.search)
+      list = list.filter(
+        (o) =>
+          normalize(o.id).includes(q) ||
+          normalize(o.user?.id || "").includes(q) ||
+          normalize(o.user?.email || "").includes(q) ||
+          normalize(o.user?.name || "").includes(q)
       )
     }
+    return list
+  }, [hasActiveFilter, allOrders, filters.status, filters.search])
+
+  const pagedFiltered = useMemo(() => {
+    if (!hasActiveFilter) {
+      return {
+        orders: state.orders,
+        total: state.totalOrders,
+        page: state.currentPage,
+        totalPages: state.totalPages,
+        hasNextPage: state.hasNextPage,
+        hasPrevPage: state.hasPrevPage,
+      }
+    }
+    const total = filteredAll.length
+    const page = state.currentPage
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    const start = (page - 1) * pageSize
+    const end = start + pageSize
+    const slice = filteredAll.slice(start, end)
 
     return {
-      isEmpty: filteredOrders.length === 0 && !state.loading,
-      pendingOrders: filteredOrders.filter(
-        (order) => order.status === "En Preparacion"
-      ),
-      approvedOrders: filteredOrders.filter(
-        (order) => order.status === "Aprobada"
-      ),
-      deliveredOrders: filteredOrders.filter(
-        (order) => order.status === "Entregada"
-      ),
-      canceledOrders: filteredOrders.filter(
-        (order) => order.status === "Cancelada"
-      ),
-      // Validación segura para totalRevenue
-      totalRevenue: filteredOrders.reduce((sum, order) => {
-        const grandTotal = order.summary?.grandTotal || 0
-        return (
-          sum +
-          (typeof grandTotal === "number" && !isNaN(grandTotal)
-            ? grandTotal
-            : 0)
-        )
-      }, 0),
-      // Validación segura para averageOrderValue
-      averageOrderValue:
-        filteredOrders.length > 0
-          ? (() => {
-              const total = filteredOrders.reduce((sum, order) => {
-                const grandTotal = order.summary?.grandTotal || 0
-                return (
-                  sum +
-                  (typeof grandTotal === "number" && !isNaN(grandTotal)
-                    ? grandTotal
-                    : 0)
-                )
-              }, 0)
-              return total / filteredOrders.length
-            })()
-          : 0,
+      orders: slice,
+      total,
+      page,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
     }
-  }, [state.orders, state.loading, filters])
+  }, [
+    hasActiveFilter,
+    filteredAll,
+    state.orders,
+    state.totalOrders,
+    state.currentPage,
+    state.totalPages,
+    state.hasNextPage,
+    state.hasPrevPage,
+    pageSize,
+  ])
 
+  // -------- Contadores GLOBALes (independientes del filtro activo)
+  const derivedCounts = useMemo<UseOrdersDerived>(() => {
+    // preferimos allOrders (dataset completo); si aún no está, usamos lo que haya en state.orders
+    const source = allOrders.length ? allOrders : state.orders
+    const n = (s: string) => normalize(s)
+    const by = (pred: (o: Order) => boolean) => source.filter(pred).length
+    return {
+      pendingOrders: by((o) => n(o.status) === "onpreparation"),
+      approvedOrders: by((o) => isApprovedOrder(o)),
+      deliveredOrders: by((o) =>
+        ["delivered", "completed"].includes(n(o.status))
+      ),
+      canceledOrders: by((o) =>
+        ["cancelled", "canceled"].includes(n(o.status))
+      ),
+    }
+  }, [allOrders, state.orders])
+
+  // 🔑 Return: en modo filtro devolvemos lo paginado EN MEMORIA
   return {
-    // Estado (con órdenes filtradas)
+    // estado base
     ...state,
-    orders: derivedData.isEmpty
-      ? []
-      : filters.status || filters.search
-      ? state.orders.filter((order) => {
-          let matches = true
-          if (filters.status) {
-            matches = matches && order.status === filters.status
-          }
-          if (filters.search) {
-            const searchTerm = filters.search.toLowerCase()
-            matches =
-              matches &&
-              (order.id?.toLowerCase().includes(searchTerm) ||
-                order.userId?.toLowerCase().includes(searchTerm))
-          }
-          return matches
-        })
-      : state.orders,
-    ...derivedData,
+    // override en modo filtro
+    orders: pagedFiltered.orders,
+    totalOrders: hasActiveFilter ? pagedFiltered.total : state.totalOrders,
+    currentPage: hasActiveFilter ? pagedFiltered.page : state.currentPage,
+    totalPages: hasActiveFilter ? pagedFiltered.totalPages : state.totalPages,
+    hasNextPage: hasActiveFilter ? pagedFiltered.hasNextPage : state.hasNextPage,
+    hasPrevPage: hasActiveFilter ? pagedFiltered.hasPrevPage : state.hasPrevPage,
 
-    // Acciones
+    // derivados (GLOBALes)
+    ...derivedCounts,
+
+    // acciones
     fetchOrders,
     fetchOrderStats,
     createOrder,

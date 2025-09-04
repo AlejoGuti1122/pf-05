@@ -91,6 +91,7 @@ export interface OrdersResponse {
 export interface GetOrdersParams {
   page?: number;
   limit?: number;
+  orderId?: string;
   search?: string;
   status?: OrderStatus;
   userId?: string;

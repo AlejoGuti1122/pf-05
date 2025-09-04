@@ -28,15 +28,17 @@ import {
 import CreateProductButton from "@/features/home/components/CreateproductButton"
 
 const menuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: Home },
-
-  { title: "Órdenes", url: "/ordenes", icon: ShoppingCart },
+  { title: "Inicio", url: "/home", icon: Home },
 
   { title: "Ventas", url: "/ventas", icon: BarChart3 },
 
-  { title: "Crear repuesto", url: "/form", icon: Wrench },
+  { title: "Órdenes", url: "/ordenes", icon: ShoppingCart },
 
-  { title: "Modificar repuesto", url: "/form", icon: Package },
+  { title: "Productos", url: "/productos", icon: Package },
+
+  { title: "Usuarios", url: "/dashboard", icon: Users },
+
+  { title: "Crear Producto", url: "/form", icon: Wrench },
 ]
 
 export function AppSidebar() {
@@ -52,12 +54,12 @@ export function AppSidebar() {
               size="lg"
               asChild
             >
-              <Link href="/dashboard">
+              <Link href="/ventas">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-red-600 text-white">
                   <ShoppingBag className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">Mi Tienda</span>
+                  <span className="font-semibold">RepuStore</span>
                   <span className="text-xs">Admin Panel</span>
                 </div>
               </Link>

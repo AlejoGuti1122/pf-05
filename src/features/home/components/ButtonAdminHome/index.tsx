@@ -22,7 +22,7 @@ const ButtonAdmin = ({ user }: Props) => {
     e.stopPropagation()
     console.log("Botón clickeado - navegando a dashboard")
     console.log("Usuario:", user)
-    window.location.href = "/dashboard"
+    window.location.href = "/ventas"
   }
 
   if (!user?.isAdmin) return null

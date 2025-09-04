@@ -163,7 +163,7 @@ export class OrderService {
     })
 
     // Llamar sin parámetros como necesita tu backend
-    return apiClient.get<OrdersResponse>("/orders")
+    return apiClient.get<OrdersResponse>("/orders", params)
   }
 
   /**
