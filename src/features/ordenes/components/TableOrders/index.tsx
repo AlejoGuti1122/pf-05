@@ -52,7 +52,7 @@ const OrdersTable: React.FC = () => {
     pendingOrders,  // count de onPreparation
     approvedOrders, // count de approved
   } = useOrders({
-    initialParams: {},
+    initialParams: { status: "onPreparation"},
     autoFetch: true,
   })
 

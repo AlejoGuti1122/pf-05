@@ -83,6 +83,12 @@ const isApprovedOrder = (o: any) =>
   normalize(o?.status) === "approved" ||
   normalize(o?.paymentStatus) === "approved"
 
+// Helpers de fecha
+const getDate = (o: any) =>
+  new Date(o?.date ?? o?.createdAt ?? 0).getTime()
+const sortAscByDate = (arr: Order[]) =>
+  [...arr].sort((a, b) => getDate(a) - getDate(b))
+
 export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
   const { initialParams = {}, autoFetch = true, includeDashboard = false } =
     options
@@ -98,10 +104,13 @@ export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
     hasPrevPage: false,
   })
 
-  // Filtros persistentes
-  const [filters, setFiltersState] = useState<GetOrdersParams>(initialParams)
+  // 🟢 Filtros persistentes: por defecto arrancamos en "onPreparation"
+  const [filters, setFiltersState] = useState<GetOrdersParams>({
+    status: (initialParams.status as any) ?? ("onPreparation" as any),
+    ...initialParams,
+  })
 
-  // Dataset completo para filtrado/contadores globales
+  // Dataset completo para filtros/contadores globales
   const [allOrders, setAllOrders] = useState<Order[]>([])
   const [pageSize] = useState<number>(PAGE_SIZE_DEFAULT)
 
@@ -169,9 +178,7 @@ export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
   // -------- Fetch de todas las páginas (para filtros/contadores globales)
   const loadAllOrders = useCallback(async () => {
     try {
-      // NO tocamos state.loading para no parpadear la tabla
       const first = await OrderService.getOrders({ page: 1, limit: pageSize })
-
       let items: Order[] = []
       let totalPages = 1
 
@@ -198,7 +205,7 @@ export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
     }
   }, [pageSize])
 
-  // -------- Stats (opcional, por si tu backend da contadores)
+  // -------- Stats (opcional)
   const fetchOrderStats = useCallback(async () => {
     try {
       const stats = await OrderService.getOrderStats()
@@ -214,7 +221,6 @@ export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
       updateState({ loading: true, error: null })
       try {
         await OrderService.createOrder(orderData)
-        // refrescar lista visible y dataset global
         await Promise.all([
           fetchOrders({ page: 1, limit: pageSize }),
           loadAllOrders(),
@@ -331,26 +337,42 @@ export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
     updateState({ error: null })
   }, [updateState])
 
-  // -------- Auto-load inicial: una página para la tabla + todas para contadores/filtros
+  // -------- Auto-load inicial
   useEffect(() => {
-    if (autoFetch) {
-      fetchOrders({ page: 1, limit: pageSize })
-      loadAllOrders()
-      if (includeDashboard) fetchOrderStats()
-    }
-  }, []) // mount only
+    if (!autoFetch) return
 
-  // Cuando cambian los filtros: resetear página y (si hay filtro) no pegamos al backend
+    // Pintado rápido con la primera página
+    fetchOrders({ page: 1, limit: pageSize }).finally(() => null)
+
+    // Si hay filtro activo al inicio (lo hay: onPreparation),
+    // mantenemos loading hasta que carguemos TODO y apliquemos el filtro.
+    ;(async () => {
+      if (filters.status || (filters.search && filters.search.trim().length)) {
+        updateState({ loading: true })
+        await loadAllOrders()
+        updateState({ loading: false })
+      } else {
+        // aunque no haya filtro, precargamos para contadores globales
+        loadAllOrders()
+      }
+      if (includeDashboard) fetchOrderStats()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Cuando cambian los filtros: resetea a página 1 (sin refetch backend)
   useEffect(() => {
-    if (hasActiveFilter && state.currentPage !== 1) {
-      updateState({ currentPage: 1 })
-    }
-  }, [hasActiveFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+    setState((prev) =>
+      prev.currentPage === 1 ? prev : { ...prev, currentPage: 1 }
+    )
+  }, [filters.status, filters.search])
 
   // ---------- Filtrado + paginación local en “modo filtro” ----------
   const filteredAll = useMemo(() => {
     if (!hasActiveFilter) return []
-    let list = allOrders
+    // 🧠 Base: si ya tenemos todas, usamos allOrders;
+    // si todavía no, usamos la página actual para no dejar vacío.
+    let list = (allOrders.length ? allOrders : state.orders) as Order[]
 
     if (filters.status) {
       const t = normalize(filters.status as string)
@@ -358,6 +380,8 @@ export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
         list = list.filter((o) => isApprovedOrder(o))
       } else if (t === "onpreparation") {
         list = list.filter((o) => normalize(o.status) === "onpreparation")
+        // 🟢 ordenar más antiguas primero cuando estamos en "en preparación"
+        list = sortAscByDate(list)
       } else {
         const accepted = STATUS_MAP[t] || [t]
         list = list.filter((o) => accepted.includes(normalize(o.status)))
@@ -375,7 +399,7 @@ export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
       )
     }
     return list
-  }, [hasActiveFilter, allOrders, filters.status, filters.search])
+  }, [hasActiveFilter, allOrders, state.orders, filters.status, filters.search])
 
   const pagedFiltered = useMemo(() => {
     if (!hasActiveFilter) {
@@ -417,7 +441,6 @@ export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
 
   // -------- Contadores GLOBALes (independientes del filtro activo)
   const derivedCounts = useMemo<UseOrdersDerived>(() => {
-    // preferimos allOrders (dataset completo); si aún no está, usamos lo que haya en state.orders
     const source = allOrders.length ? allOrders : state.orders
     const n = (s: string) => normalize(s)
     const by = (pred: (o: Order) => boolean) => source.filter(pred).length
@@ -433,11 +456,11 @@ export const useOrders = (options: UseOrdersOptions = {}): UseOrdersReturn => {
     }
   }, [allOrders, state.orders])
 
-  // 🔑 Return: en modo filtro devolvemos lo paginado EN MEMORIA
+  // 🔑 Return
   return {
     // estado base
     ...state,
-    // override en modo filtro
+    // override en modo filtro (lista paginada en memoria)
     orders: pagedFiltered.orders,
     totalOrders: hasActiveFilter ? pagedFiltered.total : state.totalOrders,
     currentPage: hasActiveFilter ? pagedFiltered.page : state.currentPage,
