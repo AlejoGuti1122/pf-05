@@ -1,93 +1,76 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// hooks/useProfile.ts
-"use client"
+"use client";
 
-import { useState, useCallback, useEffect } from 'react'
-import { toast } from 'sonner'
-import { UpdateProfileRequest, UserProfile, UserStats } from '../types/profile-types'
-import { userService } from '../services/profile-services'
-
+import { useState, useCallback, useEffect } from "react";
+import { toast } from "sonner";
+import { UpdateProfileRequest, UserProfile, UserStats } from "../types/profile-types";
+import { userService } from "../services/profile-services";
 
 export const useProfile = () => {
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [stats, setStats] = useState<UserStats | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Helper para manejar errores
-  const handleError = useCallback((error: any, defaultMessage: string) => {
-    const message = error?.message || defaultMessage
-    setError(message)
-    toast.error(message)
-    console.error('❌ [useProfile] Error:', error)
-  }, [])
+  const handleError = useCallback((err: any, fallback: string) => {
+    const message = err?.message || fallback;
+    setError(message);
+    toast.error(message);
+    console.error("❌ [useProfile] Error:", err);
+  }, []);
 
-  // Obtener perfil del usuario
   const fetchProfile = useCallback(async () => {
     try {
-      setIsLoading(true)
-      setError(null)
-      console.log("🔄 [useProfile] Cargando perfil...")
-
-      const profileData = await userService.getCurrentUserProfile()
-      console.log("✅ [useProfile] Perfil cargado:", profileData)
-      
-      setProfile(profileData)
-    } catch (error) {
-      handleError(error, "Error al cargar el perfil")
+      setIsLoading(true);
+      setError(null);
+      const data = await userService.getCurrentUserProfile();
+      setProfile(data);
+      // Debug útil
+      console.log("🖼 avatarResolved:", data?.avatarResolved);
+    } catch (e) {
+      handleError(e, "Error al cargar el perfil");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [handleError])
+  }, [handleError]);
 
-  // Actualizar perfil
   const updateProfile = useCallback(async (updateData: UpdateProfileRequest) => {
     try {
-      setIsLoading(true)
-      setError(null)
-      console.log("✏️ [useProfile] Actualizando perfil:", updateData)
-
-      const updatedProfile = await userService.updateUserProfile(updateData)
-      
-      setProfile(updatedProfile)
-      toast.success("Perfil actualizado correctamente")
-      
-      return updatedProfile
-    } catch (error) {
-      handleError(error, "Error al actualizar el perfil")
-      throw error
+      setIsLoading(true);
+      setError(null);
+      const updated = await userService.updateUserProfile(updateData);
+      setProfile(updated);
+      toast.success("Perfil actualizado correctamente");
+      return updated;
+    } catch (e) {
+      handleError(e, "Error al actualizar el perfil");
+      throw e;
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [handleError])
+  }, [handleError]);
 
-  // Obtener estadísticas
   const fetchStats = useCallback(async () => {
     try {
-      const statsData = await userService.getUserStats()
-      setStats(statsData)
-    } catch (error) {
-      console.error("Error al cargar estadísticas:", error)
-      // No mostrar error para stats, son opcionales
+      const s = await userService.getUserStats();
+      setStats(s);
+    } catch (e) {
+      console.warn("⚠️ [useProfile] No se pudieron cargar estadísticas:", e);
     }
-  }, [])
+  }, []);
 
-  // Cargar datos al montar
   useEffect(() => {
-    fetchProfile()
-    fetchStats()
-  }, [fetchProfile, fetchStats])
+    fetchProfile();
+    fetchStats();
+  }, [fetchProfile, fetchStats]);
 
   return {
-    // Estado
     profile,
     stats,
     isLoading,
     error,
-
-    // Acciones
     updateProfile,
     refetchProfile: fetchProfile,
     refetchStats: fetchStats,
-  }
-}
+  };
+};

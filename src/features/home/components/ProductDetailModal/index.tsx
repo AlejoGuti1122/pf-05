@@ -1,18 +1,39 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // components/ProductDetailModal.tsx
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
-import { X, Heart, Loader2, AlertCircle, Minus, Plus, Shield } from "lucide-react"
+import React, { useEffect, useMemo, useState, useCallback } from "react"
+import {
+  X,
+  Heart,
+  Loader2,
+  AlertCircle,
+  Minus,
+  Plus,
+  Shield,
+  Star,
+} from "lucide-react"
 import Image from "next/image"
 import { Product } from "../../types/products"
 import useProductDetail from "../../hooks/useProductsDetail"
 import { useFavorites } from "../../../cart/hooks/useFavorites"
+import { productService } from "../../services/products-detail"
 
 interface ProductDetailModalProps {
   isOpen: boolean
   product: Product | null
   onClose: () => void
   onAddToCart: (product: Product, quantity?: number) => void
+}
+
+type Review = {
+  id: string
+  userId: string
+  userName: string
+  userImg?: string | null   // ⬅️ imagen del usuario
+  rating: number
+  comment: string
+  createdAt: string
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -22,34 +43,29 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onAddToCart,
 }) => {
   // ---- Hooks SIEMPRE al top-level
-  const { productDetail, loading, error, fetchProductDetail, clearDetail } = useProductDetail()
-  const { toggleFavorite, isFavorite, isLoading: favoritesLoading } = useFavorites()
+  const { productDetail, loading, error, fetchProductDetail, clearDetail } =
+    useProductDetail()
+  const { toggleFavorite, isFavorite, isLoading: favoritesLoading } =
+    useFavorites()
 
   const [qty, setQty] = useState<number>(1)
   const [imgErrored, setImgErrored] = useState(false)
 
+  // ---- Reseñas
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [reviewsTotal, setReviewsTotal] = useState<number>(0)
+  const [reviewsAvg, setReviewsAvg] = useState<number>(0)
+  const [reviewsLoading, setReviewsLoading] = useState<boolean>(false)
+  const [reviewsError, setReviewsError] = useState<string | null>(null)
+  const [reviewsPage, setReviewsPage] = useState<number>(1)
+  const [reviewsHasMore, setReviewsHasMore] = useState<boolean>(false)
+  const REVIEWS_LIMIT = 5
+
   // Helpers
   const productId = product?.id ?? null
-  const displayProduct: Product | null = (productDetail as Product) || product || null
+  const displayProduct: Product | null =
+    (productDetail as unknown as Product) || product || null
   const isProductFavorite = productId ? isFavorite(productId) : false
-
-  useEffect(() => {
-    if (isOpen && productId) {
-      fetchProductDetail(productId)
-    } else {
-      clearDetail()
-    }
-    setQty(1)
-    setImgErrored(false)
-  }, [isOpen, productId, fetchProductDetail, clearDetail])
-
-  const rating = useMemo(() => {
-    if (!displayProduct) return null
-    const avg = Number((displayProduct as any).averageRating || 0)
-    const total = Number((displayProduct as any).totalReviews || 0)
-    if (!avg && !total) return null
-    return { avg, total }
-  }, [displayProduct])
 
   const formatCOP = (value: number | string) =>
     new Intl.NumberFormat("es-CO", {
@@ -80,6 +96,128 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
     onClose()
   }
+
+  // Cargar detalle del producto
+  useEffect(() => {
+    if (isOpen && productId) {
+      fetchProductDetail(productId)
+    } else {
+      clearDetail()
+    }
+    setQty(1)
+    setImgErrored(false)
+  }, [isOpen, productId, fetchProductDetail, clearDetail])
+
+  // Calcular rating visible
+  const rating = useMemo(() => {
+    if (reviewsTotal > 0) return { avg: reviewsAvg, total: reviewsTotal }
+    if (!displayProduct) return null
+    const avg = Number((displayProduct as any).averageRating || 0)
+    const total = Number((displayProduct as any).totalReviews || 0)
+    if (!avg && !total) return null
+    return { avg, total }
+  }, [displayProduct, reviewsAvg, reviewsTotal])
+
+  // Normalizador común de reseñas para incluir userImg
+  const normalizeReviews = (arr: any[]): Review[] =>
+    (arr || []).map((c: any) => ({
+      id: c.id,
+      userId: c.userId ?? c.user?.id,
+      userName: c.userName ?? c.user?.name ?? "Usuario",
+      userImg: c.userImg ?? c.user?.imgUrl ?? null, // ⬅️ imagen si viene del back
+      rating: Number(c.rating ?? 0),
+      comment: c.comment ?? c.content ?? "",
+      createdAt: c.createdAt ?? new Date().toISOString(),
+    }))
+
+  // Cargar reseñas (endpoint paginado opcional)
+  const fetchReviews = useCallback(
+    async (page = 1) => {
+      if (!productId) return
+      try {
+        setReviewsLoading(true)
+        setReviewsError(null)
+        const data = await productService.getProductReviews(
+          productId,
+          page,
+          REVIEWS_LIMIT
+        )
+        const normalized = normalizeReviews(data.reviews || [])
+        if (page === 1) {
+          setReviews(normalized)
+        } else {
+          setReviews((prev) => [...prev, ...normalized])
+        }
+        setReviewsTotal(Number(data.totalCount || normalized.length || 0))
+        setReviewsAvg(Number(data.averageRating || 0))
+        setReviewsHasMore((data.reviews?.length || 0) === REVIEWS_LIMIT)
+        setReviewsPage(page)
+      } catch (err: any) {
+        setReviewsError(err?.message || "No se pudieron cargar las reseñas.")
+        setReviews([])
+        setReviewsTotal(0)
+        setReviewsAvg(0)
+        setReviewsHasMore(false)
+      } finally {
+        setReviewsLoading(false)
+      }
+    },
+    [productId]
+  )
+
+  // trigger reseñas al abrir/cambiar producto
+  useEffect(() => {
+    // 1) Si el detalle trae comments embebidos, usarlos primero
+    const comments = (productDetail as any)?.comments
+    if (Array.isArray(comments) && comments.length > 0) {
+      const normalized = normalizeReviews(comments)
+      setReviews(normalized)
+      setReviewsTotal(normalized.length)
+      const avg =
+        normalized.reduce((acc: number, x: any) => acc + Number(x?.rating || 0), 0) /
+        normalized.length
+      setReviewsAvg(Math.round(avg * 10) / 10)
+      setReviewsHasMore(false) // ya vino todo junto en el detalle
+      setReviewsPage(1)
+    } else if (isOpen && productId) {
+      // 2) Sino, intentamos el endpoint paginado
+      fetchReviews(1)
+    } else {
+      // reset
+      setReviews([])
+      setReviewsTotal(0)
+      setReviewsAvg(0)
+      setReviewsHasMore(false)
+      setReviewsPage(1)
+      setReviewsLoading(false)
+      setReviewsError(null)
+    }
+  }, [isOpen, productId, productDetail, fetchReviews])
+
+  // Estrellas
+  const Stars = ({ value }: { value: number }) => {
+    const full = Math.round(value)
+    return (
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star
+            key={i}
+            size={16}
+            className={i < full ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  // Iniciales para fallback de avatar
+  const getInitials = (name?: string) =>
+    (name || "U")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((n) => n[0]?.toUpperCase() || "")
+      .join("") || "U"
 
   // Guard posterior a los hooks
   if (!isOpen || !product) return null
@@ -201,16 +339,22 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="flex flex-col gap-6">
                 <div>
                   <h1 className="text-2xl font-bold text-black">{displayProduct.name}</h1>
+
                   <div className="mt-2 flex items-center gap-3">
                     <span className="text-3xl font-extrabold text-red-600">
                       ${formatCOP(displayProduct.price)}
                     </span>
+
                     {rating && (
-                      <span className="text-sm text-gray-600">
-                        {rating.avg.toFixed(1)} ★ ({rating.total})
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Stars value={rating.avg} />
+                        <span className="text-sm text-gray-600">
+                          {rating.avg.toFixed(1)} ({rating.total})
+                        </span>
+                      </div>
                     )}
                   </div>
+
                   <p className="mt-2 text-sm text-gray-600">
                     {productDetail?.description ||
                       `${displayProduct.brand} ${displayProduct.model} • ${displayProduct.year} • Motor ${displayProduct.engine}`}
@@ -247,12 +391,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </dl>
                 </div>
 
-                {/* Cantidad & acciones — reemplazado por tu bloque (adaptado) */}
+                {/* Cantidad & acciones */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 flex-1">
-                    <span className="text-sm font-medium text-gray-700">
-                      Cantidad:
-                    </span>
+                    <span className="text-sm font-medium text-gray-700">Cantidad:</span>
                     <div className="flex items-center border border-gray-300 rounded-lg">
                       <button
                         onClick={dec}
@@ -313,6 +455,93 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ---- Reseñas ---- */}
+          {!loading && productId && (
+            <div className="mt-10">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-black">Opiniones de clientes</h3>
+                {!!reviewsTotal && (
+                  <div className="flex items-center gap-3">
+                    <Stars value={reviewsAvg} />
+                    <span className="text-sm text-gray-600">
+                      {reviewsAvg.toFixed(1)} / 5 • {reviewsTotal}{" "}
+                      {reviewsTotal === 1 ? "reseña" : "reseñas"}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {reviewsLoading && (
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Loader2 size={18} className="animate-spin" />
+                  Cargando reseñas…
+                </div>
+              )}
+
+              {!!reviewsError && !reviewsLoading && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                  {reviewsError}
+                </div>
+              )}
+
+              {!reviewsLoading && !reviewsError && reviews.length === 0 && (
+                <p className="text-sm text-gray-500">Aún no hay reseñas para este producto.</p>
+              )}
+
+              {!reviewsLoading && reviews.length > 0 && (
+                <div className="space-y-4">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {/* Avatar */}
+                          {r.userImg ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={r.userImg}
+                              alt={r.userName || "Usuario"}
+                              className="h-10 w-10 rounded-full object-cover border"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.display = "none"
+                              }}
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center font-semibold border">
+                              {getInitials(r.userName)}
+                            </div>
+                          )}
+                          <div className="font-semibold text-black">
+                            {r.userName || "Usuario"}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Stars value={r.rating} />
+                          <span className="text-xs text-gray-500">
+                            {new Date(r.createdAt).toLocaleDateString("es-CO")}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-2 whitespace-pre-line">{r.comment}</p>
+                    </div>
+                  ))}
+
+                  {reviewsHasMore && (
+                    <div className="pt-2">
+                      <button
+                        onClick={() => fetchReviews(reviewsPage + 1)}
+                        disabled={reviewsLoading}
+                        className="px-4 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-50 disabled:opacity-60"
+                      >
+                        {reviewsLoading ? "Cargando..." : "Ver más reseñas"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

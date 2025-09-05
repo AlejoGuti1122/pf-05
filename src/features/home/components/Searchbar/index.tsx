@@ -146,7 +146,7 @@ const SearchBarWithAPI: React.FC<SearchBarWithAPIProps> = ({
           )}
         </div>
 
-        {/* ✅ BOTÓN DE BÚSQUEDA */}
+        {/* ✅ BOTÓN DE BÚSQUEDA
         <button
           onClick={handleManualSearch}
           disabled={!searchTerm.trim() || loading}
@@ -161,7 +161,7 @@ const SearchBarWithAPI: React.FC<SearchBarWithAPIProps> = ({
             <Search size={16} />
           )}
           Buscar
-        </button>
+        </button> */}
       </div>
 
       {/* Estado de búsqueda */}

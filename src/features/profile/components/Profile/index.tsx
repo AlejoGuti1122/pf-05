@@ -1,5 +1,8 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from "react"
+"use client";
+
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ShoppingBag,
   Package,
@@ -14,194 +17,328 @@ import {
   Trash2,
   Eye,
   ShoppingCart,
-} from "lucide-react"
-import { useFavorites } from "@/features/cart/hooks/useFavorites"
-import { useCartContext } from "@/features/cart/context"
+  SortAsc,
+  Search,
+  RefreshCcw,
+} from "lucide-react";
+import { useFavorites } from "@/features/cart/hooks/useFavorites";
+import { useCartContext } from "@/features/cart/context";
+import OrderDetailModal from "@/features/profile/components/Profile/OrderDetailModal";
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001").replace(
+  /\/$/,
+  ""
+);
+
+/* ----------------- Helpers para URL absoluta y avatar ----------------- */
+const isAbsoluteUrl = (u?: string) => !!u && /^https?:\/\//i.test(u || "");
+const toAbsolute = (u?: string) => {
+  if (!u) return "";
+  if (isAbsoluteUrl(u)) return u;
+  const path = String(u).replace(/^\//, "");
+  return `${API_BASE}/${path}`;
+};
+
+const resolveAvatarFromUser = (user: any): string => {
+  if (!user) return "";
+
+  // candidatos más comunes
+  const candidates: any[] = [
+    user.avatarResolved,
+    user.avatarUrl,
+    user.picture,
+    user.avatar, // puede ser string u objeto
+    user.photoURL,
+    user.photoUrl,
+    user.image,
+    user.imgUrl,
+    user.profile?.avatarUrl,
+    user.profilePicture,
+    user.pictureUrl,
+  ].filter(Boolean);
+
+  // si avatar vino como objeto (Cloudinary u otro)
+  if (user.avatar && typeof user.avatar === "object") {
+    candidates.unshift(user.avatar.secure_url, user.avatar.url);
+  }
+
+  const raw = candidates.find(Boolean);
+  return raw ? toAbsolute(String(raw)) : "";
+};
+/* --------------------------------------------------------------------- */
 
 const UserProfile = () => {
-  const [activeTab, setActiveTab] = useState("orders")
-  const [user, setUser] = useState<any>(null)
-  const [userId, setUserId] = useState<string>("")
-  const [isInitialized, setIsInitialized] = useState(false)
+  const [activeTab, setActiveTab] = useState<"orders" | "favorites">("orders");
+  const [user, setUser] = useState<any>(null);
+  const [userId, setUserId] = useState<string>("");
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // ✅ NUEVO: Hooks integrados
+  // Modal de orden
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+
+  // Favorites
   const {
     favoriteProducts,
     removeFromFavorites,
     isLoading: favoritesLoading,
     error: favoritesError,
     refreshFavorites,
-  } = useFavorites()
+  } = useFavorites();
 
-  const { addItem: addToCart, isLoading: cartLoading } = useCartContext()
+  // UI favoritos
+  const [favQuery, setFavQuery] = useState("");
+  const [favSortBy, setFavSortBy] = useState<"recent" | "price" | "name" | "year">(
+    "recent"
+  );
+  const [favSortOrder, setFavSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Estados para órdenes - estructura corregida según tu backend
-  const [orders, setOrders] = useState<any[]>([])
-  const [ordersLoading, setOrdersLoading] = useState(false)
-  const [ordersError, setOrdersError] = useState<string | null>(null)
+  const { addItem: addToCart, isLoading: cartLoading } = useCartContext();
 
-  // ✅ ELIMINAR: Estados locales de favoritos ya no son necesarios
-  // const [favorites, setFavorites] = useState<any[]>([])
-  // const [favoritesLoading, setFavoritesLoading] = useState(false)
-  // const [favoritesError, setFavoritesError] = useState<string | null>(null)
+  // Orders
+  const [orders, setOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
 
-  // Efecto para obtener datos del usuario solo en el cliente
+  // UI órdenes
+  const [ordQuery, setOrdQuery] = useState("");
+  const [ordStatus, setOrdStatus] = useState<
+    | "all"
+    | "approved"
+    | "pending"
+    | "processing"
+    | "onPreparation"
+    | "shipped"
+    | "inTransit"
+    | "delivered"
+    | "cancelled"
+    | "returned"
+  >("all");
+  const [ordSortOrder, setOrdSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Init user
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const userData = JSON.parse(localStorage.getItem("user") || "{}")
-      setUser(userData)
-      setUserId(userData.id || "")
-      setIsInitialized(true)
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      // Derivar avatar desde lo que haya en LS
+      const avatarResolved = resolveAvatarFromUser(userData);
+      const withAvatar = avatarResolved ? { ...userData, avatarResolved } : userData;
+
+      setUser(withAvatar);
+      setUserId(userData.id || "");
+      setIsInitialized(true);
+
+      // Guardar en LS si logramos resolver avatar
+      if (avatarResolved) {
+        localStorage.setItem("user", JSON.stringify(withAvatar));
+      }
     }
-  }, [])
+  }, []);
 
-  // Función para obtener órdenes
+  // Cargar órdenes (y de paso sincronizar usuario desde API)
   const fetchOrders = async () => {
-    if (!userId) return
-
-    setOrdersLoading(true)
-    setOrdersError(null)
+    if (!userId) return;
+    setOrdersLoading(true);
+    setOrdersError(null);
 
     try {
-      const response = await fetch(
-        `https://pf-grupo5-8.onrender.com/users/${userId}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${
-              localStorage.getItem("token") || localStorage.getItem("authToken")
-            }`,
-          },
-        }
-      )
+      const response = await fetch(`${API_BASE}/users/${userId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${
+            localStorage.getItem("token") || localStorage.getItem("authToken")
+          }`,
+        },
+        credentials: "include",
+      });
 
-      if (!response.ok) {
-        throw new Error("Error al cargar órdenes")
-      }
+      if (!response.ok) throw new Error("Error al cargar órdenes");
 
-      const userData = await response.json()
-      setOrders(userData.orders || [])
+      const userData = await response.json();
+
+      // 1) setear órdenes
+      setOrders(userData.orders || []);
+
+      // 2) mezclar usuario de la API con el de estado/LS, resolviendo avatar absoluto
+      const nextUser = { ...(user || {}), ...userData };
+      const avatarResolved = resolveAvatarFromUser(nextUser);
+      if (avatarResolved) nextUser.avatarResolved = avatarResolved;
+
+      setUser(nextUser);
+
+      // 3) actualizar localStorage para que otras vistas (navbar) lo tengan
+      const currentLS = JSON.parse(localStorage.getItem("user") || "{}");
+      localStorage.setItem("user", JSON.stringify({ ...currentLS, ...nextUser }));
     } catch (error: any) {
-      setOrdersError(error.message)
+      setOrdersError(error.message);
     } finally {
-      setOrdersLoading(false)
+      setOrdersLoading(false);
     }
-  }
-
-  // ✅ ELIMINAR: Ya no necesitamos fetchFavorites local
-  // const fetchFavorites = async () => { ... }
+  };
 
   useEffect(() => {
-    if (userId && isInitialized) {
-      fetchOrders()
-      // ✅ ELIMINAR: Ya no llamamos fetchFavorites local
-      // fetchFavorites();
-    }
-  }, [userId, isInitialized])
+    if (userId && isInitialized) fetchOrders();
+  }, [userId, isInitialized]);
 
-  // ✅ NUEVO: Handler para agregar al carrito
+  // Cart
   const handleAddToCart = async (product: any) => {
-    if (!product.id || cartLoading) return
-
+    if (!product.id || cartLoading) return;
     try {
-      await addToCart({
-        productId: product.id,
-        quantity: 1,
-      })
+      await addToCart({ productId: product.id, quantity: 1 });
     } catch (error) {
-      console.error("Error agregando al carrito:", error)
+      console.error("Error agregando al carrito:", error);
     }
-  }
+  };
 
-  // ✅ NUEVO: Handler para eliminar favorito
   const handleRemoveFavorite = async (productId: string) => {
-    await removeFromFavorites(productId)
-  }
+    await removeFromFavorites(productId);
+  };
 
-  // Funciones helper actualizadas según tu estructura de datos
-  const getTotalSpent = () => {
-    return orders.reduce((total, order) => {
-      if (order.orderDetails?.items) {
-        // sumamos cantidad * precio unitario de cada item
-        const orderTotal = order.orderDetails.items.reduce(
-          (sum: number, item: { quantity: number; unitPrice: number }) => {
-            return sum + item.quantity * item.unitPrice
-          },
-          0
-        )
-        return total + orderTotal
-      }
-      return total
-    }, 0)
-  }
+  const clearAllFavorites = async () => {
+    for (const p of favoriteProducts) {
+      // eslint-disable-next-line no-await-in-loop
+      await removeFromFavorites(p.id).catch(() => {});
+    }
+    await refreshFavorites();
+  };
 
-  const getRecentOrders = (limit = 10) => {
-    return orders
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, limit)
-  }
+  // Helpers
+  const getTotalSpent = () =>
+    orders.reduce((total, order) => {
+      const items = order?.orderDetails?.items ?? order?.orderDetails?.products ?? [];
+      const subtotal = items.reduce(
+        (sum: number, it: any) =>
+          sum + Number(it.quantity || 0) * Number(it.unitPrice ?? it.price ?? 0),
+        0
+      );
+      return total + subtotal;
+    }, 0);
 
-  const getOrdersByStatus = (status: string) => {
-    return orders.filter((order) => order.status === status)
-  }
-
-  const totalOrders = orders.length
+  const getOrdersByStatus = (status: string) => orders.filter((o) => o.status === status);
+  const totalOrders = orders.length;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "approved":
-        return <CheckCircle className="w-4 h-4 text-green-500" />
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
       case "pending":
-        return <Package className="w-4 h-4 text-yellow-500" />
+        return <Package className="w-4 h-4 text-yellow-500" />;
       case "processing":
-        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+      case "onPreparation":
+        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
       case "shipped":
-        return <Truck className="w-4 h-4 text-purple-500" />
+      case "inTransit":
+        return <Truck className="w-4 h-4 text-purple-500" />;
       case "cancelled":
-        return <XCircle className="w-4 h-4 text-red-500" />
+      case "returned":
+        return <XCircle className="w-4 h-4 text-red-500" />;
       default:
-        return <Package className="w-4 h-4 text-gray-500" />
+        return <Package className="w-4 h-4 text-gray-500" />;
     }
-  }
+  };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "Aprobado"
-      case "pending":
-        return "Pendiente"
-      case "processing":
-        return "Procesando"
-      case "shipped":
-        return "Enviado"
-      case "cancelled":
-        return "Cancelado"
-      default:
-        return status
-    }
-  }
+  const getStatusText = (s: string) =>
+    ({
+      approved: "Aprobado",
+      pending: "Pendiente",
+      processing: "En preparación",
+      onPreparation: "En preparación",
+      shipped: "En tránsito",
+      inTransit: "En tránsito",
+      delivered: "Entregado",
+      cancelled: "Cancelado",
+      returned: "Devuelto",
+    }[s] || s);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "approved":
-        return "bg-green-100 text-green-800 border-green-200"
+        return "bg-green-100 text-green-800 border-green-200";
       case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
       case "processing":
-        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "onPreparation":
+        return "bg-blue-100 text-blue-800 border-blue-200";
       case "shipped":
-        return "bg-purple-100 text-purple-800 border-purple-200"
+      case "inTransit":
+        return "bg-purple-100 text-purple-800 border-purple-200";
       case "cancelled":
-        return "bg-red-100 text-red-800 border-red-200"
+      case "returned":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "delivered":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
-  }
+  };
 
-  // ✅ ELIMINAR: Ya no necesitamos removeFavorite local
-  // const removeFavorite = async (productId: string) => { ... }
+  // Avatar final (absoluto y con fallback)
+  const avatarSrc = resolveAvatarFromUser(user);
 
-  // Loading inicial mientras se obtienen los datos del usuario
+  // 🔎 favoritos: filtro + ordenamiento
+  const filteredFavorites = useMemo(() => {
+    let list = [...favoriteProducts];
+
+    if (favQuery.trim()) {
+      const q = favQuery.toLowerCase();
+      list = list.filter((p: any) =>
+        [p.name, p.brand, p.model].filter(Boolean).some((t) => String(t).toLowerCase().includes(q))
+      );
+    }
+
+    const cmpStr = (a: string, b: string) => a.localeCompare(b, "es", { sensitivity: "base" });
+
+    list.sort((a: any, b: any) => {
+      let diff = 0;
+      if (favSortBy === "price") {
+        diff = Number(a.price || 0) - Number(b.price || 0);
+      } else if (favSortBy === "name") {
+        diff = cmpStr(String(a.name || ""), String(b.name || ""));
+      } else if (favSortBy === "year") {
+        diff = Number(a.year || 0) - Number(b.year || 0);
+      } else {
+        // recent
+        const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        diff = ta - tb;
+      }
+      return favSortOrder === "asc" ? diff : -diff;
+    });
+
+    return list;
+  }, [favoriteProducts, favQuery, favSortBy, favSortOrder]);
+
+  // 📦 Órdenes: filtro + ordenamiento
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const o of orders) {
+      counts[o.status] = (counts[o.status] || 0) + 1;
+    }
+    return counts;
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    let list = [...orders];
+
+    if (ordStatus !== "all") {
+      list = list.filter((o) => o.status === ordStatus);
+    }
+
+    if (ordQuery.trim()) {
+      const q = ordQuery.toLowerCase();
+      list = list.filter((o) => String(o.id || "").toLowerCase().includes(q));
+    }
+
+    list.sort((a, b) => {
+      const ta = new Date(a.date || a.createdAt || 0).getTime();
+      const tb = new Date(b.date || b.createdAt || 0).getTime();
+      return ordSortOrder === "asc" ? ta - tb : tb - ta;
+    });
+
+    return list;
+  }, [orders, ordStatus, ordQuery, ordSortOrder]);
+
+  // Loading inicial
   if (!isInitialized) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -210,10 +347,9 @@ const UserProfile = () => {
           <p className="text-gray-600">Cargando perfil...</p>
         </div>
       </div>
-    )
+    );
   }
 
-  // Si no hay usuario después de inicializar
   if (!user || !userId) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -225,20 +361,33 @@ const UserProfile = () => {
           <p className="text-gray-600">Por favor, inicia sesión nuevamente.</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gray-50 px-4 pt-24 md:pt-28">
       <div className="max-w-6xl mx-auto">
-        {/* Header del perfil */}
+        {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center">
-              <User className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-white shadow">
+              {avatarSrc ? (
+                <img
+                  src={avatarSrc}
+                  alt={user?.name || user?.email || "Usuario"}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = "/images/no-avatar.png";
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full bg-red-600 flex items-center justify-center">
+                  <User className="w-8 h-8 text-white" />
+                </div>
+              )}
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-black mt-30">
+              <h1 className="text-2xl font-bold text-black">
                 ¡Hola, {user.name || user.email || "Usuario"}!
               </h1>
               <p className="text-gray-600">Bienvenido a tu perfil personal</p>
@@ -246,15 +395,13 @@ const UserProfile = () => {
           </div>
         </div>
 
-        {/* Estadísticas rápidas */}
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
             <div className="flex items-center">
               <ShoppingBag className="w-8 h-8 text-red-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">
-                  Total Órdenes
-                </p>
+                <p className="text-sm font-medium text-gray-600">Total Órdenes</p>
                 <p className="text-2xl font-bold text-black">{totalOrders}</p>
               </div>
             </div>
@@ -264,9 +411,7 @@ const UserProfile = () => {
             <div className="flex items-center">
               <DollarSign className="w-8 h-8 text-green-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">
-                  Total Gastado
-                </p>
+                <p className="text-sm font-medium text-gray-600">Total Gastado</p>
                 <p className="text-2xl font-bold text-black">
                   ${getTotalSpent().toFixed(2)}
                 </p>
@@ -274,7 +419,6 @@ const UserProfile = () => {
             </div>
           </div>
 
-          {/* ✅ ACTUALIZADO: Usar favoriteProducts del hook */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
             <div className="flex items-center">
               <Heart className="w-8 h-8 text-pink-600" />
@@ -334,15 +478,91 @@ const UserProfile = () => {
           </div>
 
           <div className="p-6">
-            {/* Tab de Órdenes */}
+            {/* 📦 Órdenes mejoradas */}
             {activeTab === "orders" && (
               <div>
+                {/* Toolbar órdenes */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <input
+                      value={ordQuery}
+                      onChange={(e) => setOrdQuery(e.target.value)}
+                      placeholder="Buscar por ID de orden"
+                      className="w-full pl-9 pr-3 py-2 border border-red-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={ordStatus}
+                      onChange={(e) => setOrdStatus(e.target.value as any)}
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+                    >
+                      <option value="all">Todos los estados</option>
+                      <option value="approved">Aprobado</option>
+                      <option value="pending">Pendiente</option>
+                      <option value="processing">En preparación</option>
+                      
+                    </select>
+
+                    <button
+                      onClick={() =>
+                        setOrdSortOrder((p) => (p === "asc" ? "desc" : "asc"))
+                      }
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white flex items-center gap-1"
+                      title={ordSortOrder === "asc" ? "Más antiguas primero" : "Más recientes primero"}
+                    >
+                      <SortAsc
+                        className={`w-4 h-4 ${ordSortOrder === "desc" ? "rotate-180" : ""}`}
+                      />
+                      {ordSortOrder === "asc" ? "Fecha ↑" : "Fecha ↓"}
+                    </button>
+
+                    <button
+                      onClick={fetchOrders}
+                      className="px-3 py-2 border border-red-200 text-red-700 hover:bg-red-50 rounded-lg text-sm flex items-center gap-1"
+                      title="Actualizar"
+                    >
+                      <RefreshCcw className="w-4 h-4" />
+                      Actualizar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Badges de conteo por estado 
+                {orders.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {[
+                      "approved",
+                     \
+                      "shipped",
+                      "inTransit",
+                      "delivered",
+                      "cancelled",
+                      "returned",
+                    ].map((s) => {
+                      const count = statusCounts[s] || 0;
+                      if (count === 0) return null;
+                      return (
+                        <span
+                          key={s}
+                          className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                            s
+                          )}`}
+                        >
+                          {getStatusIcon(s)}
+                          {getStatusText(s)}: {count}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )} */}
+
                 {ordersLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-8 h-8 animate-spin text-red-600" />
-                    <span className="ml-2 text-gray-600">
-                      Cargando órdenes...
-                    </span>
+                    <span className="ml-2 text-gray-600">Cargando órdenes...</span>
                   </div>
                 ) : ordersError ? (
                   <div className="text-center py-8">
@@ -354,22 +574,19 @@ const UserProfile = () => {
                       Reintentar
                     </button>
                   </div>
-                ) : orders.length === 0 ? (
+                ) : filteredOrders.length === 0 ? (
                   <div className="text-center py-12">
                     <ShoppingBag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-black mb-2">
-                      No tienes órdenes aún
+                      No se encontraron órdenes
                     </h3>
-                    <p className="text-gray-600 mb-6">
-                      Cuando realices tu primera compra, aparecerá aquí.
+                    <p className="text-gray-600">
+                      Probá cambiando los filtros o realizando tu primera compra.
                     </p>
-                    <button className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
-                      Explorar Productos
-                    </button>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {getRecentOrders(10).map((order) => (
+                    {filteredOrders.map((order) => (
                       <div
                         key={order.id}
                         className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
@@ -390,48 +607,58 @@ const UserProfile = () => {
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-3">
                               <div className="flex items-center gap-1">
                                 <Calendar className="w-4 h-4" />
-                                {new Date(order.date).toLocaleDateString(
+                                {new Date(order.date || order.createdAt).toLocaleDateString(
                                   "es-ES",
-                                  {
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
-                                  }
+                                  { year: "numeric", month: "long", day: "numeric" }
                                 )}
                               </div>
                               <div className="flex items-center gap-1">
                                 <Package className="w-4 h-4" />
-                                ID: {order.id.substring(0, 8)}...
+                                ID: {String(order.id).substring(0, 8)}...
                               </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
-                              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-2">
-                                <span className="text-sm text-gray-700">
-                                  Orden procesada exitosamente
-                                </span>
-                              </div>
-                              {order.mpPaymentId && (
-                                <div className="flex items-center gap-2 bg-blue-100 rounded-lg p-2">
-                                  <span className="text-sm text-blue-700">
-                                    Pago ID: {order.mpPaymentId}
-                                  </span>
+                              {order?.orderDetails?.items?.length > 0 && (
+                                <div className="text-gray-600">
+                                  • {order.orderDetails.items.length} ítem
+                                  {order.orderDetails.items.length > 1 ? "es" : ""}
                                 </div>
                               )}
                             </div>
+
+                            {/* Preview de ítems */}
+                            {Array.isArray(order?.orderDetails?.items) &&
+                              order.orderDetails.items.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {order.orderDetails.items.slice(0, 3).map((it: any, i: number) => (
+                                    <span
+                                      key={`${order.id}-${i}`}
+                                      className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded"
+                                    >
+                                      {it.name || it.productName || "Producto"} × {it.quantity}
+                                    </span>
+                                  ))}
+                                  {order.orderDetails.items.length > 3 && (
+                                    <span className="text-xs text-gray-500">
+                                      +{order.orderDetails.items.length - 3} más
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                           </div>
 
                           <div className="text-right">
-                            <p className="text-lg font-bold text-red-600 mb-2">
-                              Estado: {getStatusText(order.status)}
-                            </p>
-                            {/* <button className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium">
+                            <button
+                              className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium"
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setOrderModalOpen(true);
+                              }}
+                            >
                               <Eye className="w-4 h-4" />
                               Ver detalles
-                            </button> */}
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -441,15 +668,58 @@ const UserProfile = () => {
               </div>
             )}
 
-            {/* ✅ ACTUALIZADO: Tab de Favoritos con hook integrado */}
+            {/* ⭐ Favoritos mejorados */}
             {activeTab === "favorites" && (
               <div>
+                {/* Toolbar */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <input
+                      value={favQuery}
+                      onChange={(e) => setFavQuery(e.target.value)}
+                      placeholder="Buscar en favoritos (nombre, marca, modelo)"
+                      className="w-full pl-9 pr-3 py-2 border border-red-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={favSortBy}
+                      onChange={(e) => setFavSortBy(e.target.value as any)}
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+                    >
+                      <option value="recent">Más recientes</option>
+                      <option value="price">Precio</option>
+                      <option value="name">Nombre</option>
+                      <option value="year">Año</option>
+                    </select>
+                    <button
+                      onClick={() => setFavSortOrder((p) => (p === "asc" ? "desc" : "asc"))}
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white flex items-center gap-1"
+                      title={favSortOrder === "asc" ? "Ascendente" : "Descendente"}
+                    >
+                      <SortAsc className={`w-4 h-4 ${favSortOrder === "desc" ? "rotate-180" : ""}`} />
+                      {favSortOrder === "asc" ? "Asc" : "Desc"}
+                    </button>
+
+                    {favoriteProducts.length > 0 && (
+                      <button
+                        onClick={clearAllFavorites}
+                        className="px-3 py-2 border border-red-200 text-red-700 hover:bg-red-50 rounded-lg text-sm flex items-center gap-1"
+                        title="Eliminar todos"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Limpiar
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {favoritesLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-8 h-8 animate-spin text-red-600" />
-                    <span className="ml-2 text-gray-600">
-                      Cargando favoritos...
-                    </span>
+                    <span className="ml-2 text-gray-600">Cargando favoritos...</span>
                   </div>
                 ) : favoritesError ? (
                   <div className="text-center py-8">
@@ -461,7 +731,7 @@ const UserProfile = () => {
                       Reintentar
                     </button>
                   </div>
-                ) : favoriteProducts.length === 0 ? (
+                ) : filteredFavorites.length === 0 ? (
                   <div className="text-center py-12">
                     <Heart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-black mb-2">
@@ -476,43 +746,42 @@ const UserProfile = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {favoriteProducts.map((product) => (
+                    {filteredFavorites.map((product: any) => (
                       <div
                         key={product.id}
-                        className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                        className="group border border-red-100 rounded-xl p-4 bg-white hover:shadow-md transition-all"
                       >
                         <div className="relative mb-4">
                           <img
-                            src={
-                              product.imgUrl ||
-                              "https://via.placeholder.com/200x200"
-                            }
+                            src={product.imgUrl || "/images/no-image-placeholder.png"}
                             alt={product.name || "Producto"}
                             className="w-full h-48 object-cover rounded-lg"
                           />
                           <button
                             onClick={() => handleRemoveFavorite(product.id)}
-                            className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-red-50 transition-colors"
+                            className="absolute top-2 right-2 p-2 bg-white/90 backdrop-blur rounded-full shadow hover:bg-red-50 transition-colors"
+                            title="Quitar de favoritos"
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </button>
+
                           {product.stock <= 0 && (
-                            <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
-                              <span className="text-white font-semibold">
-                                Sin Stock
-                              </span>
+                            <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                              <span className="text-white font-semibold">Sin Stock</span>
                             </div>
                           )}
                         </div>
 
-                        <div className="space-y-2 mb-4">
+                        <div className="space-y-2 mb-3">
                           <div className="flex justify-between items-start">
-                            <span className="text-sm font-semibold text-red-500 uppercase tracking-wider">
-                              {product.brand}
+                            <span className="text-[11px] font-semibold text-red-600 uppercase tracking-wider">
+                              {product.brand || "—"}
                             </span>
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-                              {product.model}
-                            </span>
+                            {product.model && (
+                              <span className="text-[11px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                                {product.model}
+                              </span>
+                            )}
                           </div>
 
                           <h3 className="font-semibold text-black line-clamp-2">
@@ -521,32 +790,41 @@ const UserProfile = () => {
 
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Calendar className="w-4 h-4" />
-                            <span>{product.year}</span>
+                            <span>{product.year || "—"}</span>
                           </div>
 
-                          <p className="text-2xl font-bold text-red-600">
-                            ${product.price?.toLocaleString() || 0}
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-2xl font-bold text-red-600">
+                              ${Number(product.price || 0).toLocaleString()}
+                            </p>
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full border ${
+                                product.stock > 0
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-gray-100 text-gray-700 border-gray-200"
+                              }`}
+                            >
+                              {product.stock > 0 ? `Stock: ${product.stock}` : "Sin stock"}
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleAddToCart(product)}
-                            disabled={product.stock <= 0 || cartLoading}
-                            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                          >
-                            {cartLoading ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <ShoppingCart className="w-4 h-4" />
-                            )}
-                            {cartLoading
-                              ? "Agregando..."
-                              : product.stock <= 0
-                              ? "Sin Stock"
-                              : "Agregar"}
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          disabled={product.stock <= 0 || cartLoading}
+                          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          {cartLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <ShoppingCart className="w-4 h-4" />
+                          )}
+                          {cartLoading
+                            ? "Agregando..."
+                            : product.stock <= 0
+                            ? "Sin Stock"
+                            : "Agregar al carrito"}
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -556,8 +834,15 @@ const UserProfile = () => {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
 
-export default UserProfile
+      {/* Modal de detalle de orden */}
+      <OrderDetailModal
+        isOpen={orderModalOpen}
+        onClose={() => setOrderModalOpen(false)}
+        order={selectedOrder}
+      />
+    </div>
+  );
+};
+
+export default UserProfile;

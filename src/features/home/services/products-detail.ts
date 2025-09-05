@@ -2,77 +2,98 @@
 // services/productService.ts - ESPECIALIZADO EN DETALLES DE PRODUCTO
 
 import { ProductDetailResponse } from "../types/detail"
-import { getApiUrl } from "@/config/urls" // ← IMPORTAR CONFIGURACIÓN DINÁMICA
+import { getApiUrl } from "@/config/urls"
 
 class ProductService {
   constructor() {
-    // ✅ SOLO LOG EN CLIENTE
     if (typeof window !== "undefined") {
-      console.log(
-        "🌐 ProductService (Detail) initialized with baseURL:",
-        getApiUrl()
-      )
+      console.log("🌐 ProductService (Detail) initialized with baseURL:", getApiUrl())
     }
   }
 
-  // ✅ HELPER PARA OBTENER HEADERS CON AUTH OPCIONAL
   private getHeaders(includeAuth: boolean = false): HeadersInit {
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    }
+    const headers: HeadersInit = { "Content-Type": "application/json" }
 
     if (includeAuth && typeof window !== "undefined") {
-      const token =
-        localStorage.getItem("token") || localStorage.getItem("authToken")
-      if (token) {
-        headers.Authorization = `Bearer ${token}`
-      }
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken")
+      if (token) headers.Authorization = `Bearer ${token}`
     }
 
     return headers
   }
 
-  // ✅ MEJORADO: Obtener detalle de producto
-  async getProductDetail(id: string): Promise<ProductDetailResponse> {
-    // ✅ USAR URLs DINÁMICAS
+  // 🔧 Normaliza comments para que el front siempre reciba el mismo shape
+  private normalizeDetail(data: any): ProductDetailResponse & {
+    comments?: Array<{
+      id: string
+      userId?: string
+      userName?: string
+      userImg?: string
+      rating?: number
+      comment?: string
+      createdAt?: string
+    }>
+  } {
+    const rawComments = Array.isArray(data?.comments) ? data.comments : []
+
+    const comments = rawComments.map((c: any) => ({
+      id: c?.id ?? String(Math.random()),
+      userId: c?.userId ?? c?.user?.id ?? undefined,
+      userName: c?.userName ?? c?.user?.name ?? "Usuario",
+      userImg: c?.user?.imgUrl ?? c?.userImg ?? c?.avatar ?? null,
+      rating: Number(c?.rating ?? c?.stars ?? 0),
+      comment: c?.comment ?? c?.content ?? "",
+      createdAt: (c?.createdAt ?? c?.created_at ?? new Date().toISOString()) as string,
+    }))
+
+    // Si el back no trae average/total, los derivamos de comments
+    const totalReviews = typeof data?.totalReviews === "number" ? data.totalReviews : comments.length
+    const averageRating =
+      typeof data?.averageRating === "number"
+        ? data.averageRating
+        : totalReviews > 0
+        ? Math.round(
+            (comments.reduce((acc: number, x: any) => acc + Number(x?.rating || 0), 0) /
+              totalReviews) * 10
+          ) / 10
+        : 0
+
+    return {
+      ...data,
+      comments,
+      totalReviews,
+      averageRating,
+    }
+  }
+
+  // ✅ Detalle de producto (incluye comments si el back los envía)
+  async getProductDetail(id: string): Promise<ProductDetailResponse & { comments?: any[] }> {
     const url = getApiUrl(`/products/${id}`)
     console.log("🔗 Obteniendo detalle del producto:", url)
 
     try {
       const response = await fetch(url, {
         method: "GET",
-        headers: this.getHeaders(), // Sin auth para detalles públicos
-        credentials: "include", // ✅ AGREGAR PARA COOKIES
+        headers: this.getHeaders(),
+        credentials: "include",
       })
 
       console.log("📡 Product detail response status:", response.status)
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error(
-          "❌ Error en getProductDetail:",
-          response.status,
-          errorData
-        )
+        console.error("❌ Error en getProductDetail:", response.status, errorData)
 
-        if (response.status === 404) {
-          throw new Error("Producto no encontrado.")
-        }
-        if (response.status === 403) {
-          throw new Error("Este producto no está disponible.")
-        }
-        if (response.status >= 500) {
-          throw new Error("Error del servidor. Intenta de nuevo más tarde.")
-        }
+        if (response.status === 404) throw new Error("Producto no encontrado.")
+        if (response.status === 403) throw new Error("Este producto no está disponible.")
+        if (response.status >= 500) throw new Error("Error del servidor. Intenta de nuevo más tarde.")
 
-        throw new Error(
-          errorData.message ||
-            `Error ${response.status}: ${response.statusText}`
-        )
+        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
       }
 
-      const data = await response.json()
-      console.log("✅ Detalle del producto obtenido:", data.id || data.name)
+      const raw = await response.json()
+      const data = this.normalizeDetail(raw)
+      console.log("✅ Detalle del producto obtenido:", data.id || data.name, "| comments:", data.comments?.length || 0)
       return data
     } catch (error) {
       console.error("❌ Get product detail error:", error)
@@ -80,16 +101,14 @@ class ProductService {
     }
   }
 
-  // ✅ MEJORADO: Obtener categorías
   async getCategories() {
-    // ✅ USAR URLs DINÁMICAS
     const url = getApiUrl("/categories")
     console.log("🔗 Obteniendo categorías:", url)
 
     try {
       const response = await fetch(url, {
         method: "GET",
-        headers: this.getHeaders(), // Sin auth para categorías públicas
+        headers: this.getHeaders(),
         credentials: "include",
       })
 
@@ -103,10 +122,7 @@ class ProductService {
           throw new Error("Error del servidor. Intenta de nuevo más tarde.")
         }
 
-        throw new Error(
-          errorData.message ||
-            `Error ${response.status}: ${response.statusText}`
-        )
+        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -118,17 +134,14 @@ class ProductService {
     }
   }
 
-  // ✅ MEJORADO: Crear producto con auth
   async createProduct(productData: any) {
-    // ✅ USAR URLs DINÁMICAS
     const url = getApiUrl("/products")
-    console.log("🔗 Creando producto:", url)
-    console.log("📦 Datos del producto:", productData)
+    console.log("🔗 Creando producto:", url, productData)
 
     try {
       const response = await fetch(url, {
         method: "POST",
-        headers: this.getHeaders(true), // ✅ CON AUTH
+        headers: this.getHeaders(true),
         credentials: "include",
         body: JSON.stringify(productData),
       })
@@ -139,12 +152,8 @@ class ProductService {
         const errorData = await response.json().catch(() => ({}))
         console.error("❌ Error en createProduct:", response.status, errorData)
 
-        if (response.status === 401) {
-          throw new Error("No estás autenticado. Por favor inicia sesión.")
-        }
-        if (response.status === 403) {
-          throw new Error("No tienes permisos para crear productos.")
-        }
+        if (response.status === 401) throw new Error("No estás autenticado. Por favor inicia sesión.")
+        if (response.status === 403) throw new Error("No tienes permisos para crear productos.")
         if (response.status === 400) {
           throw new Error(
             Array.isArray(errorData.message)
@@ -152,17 +161,10 @@ class ProductService {
               : errorData.message || "Datos de producto inválidos."
           )
         }
-        if (response.status === 409) {
-          throw new Error("Ya existe un producto con este nombre o código.")
-        }
-        if (response.status >= 500) {
-          throw new Error("Error del servidor. Intenta de nuevo más tarde.")
-        }
+        if (response.status === 409) throw new Error("Ya existe un producto con este nombre o código.")
+        if (response.status >= 500) throw new Error("Error del servidor. Intenta de nuevo más tarde.")
 
-        throw new Error(
-          errorData.message ||
-            `Error ${response.status}: ${response.statusText}`
-        )
+        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -174,17 +176,14 @@ class ProductService {
     }
   }
 
-  // ✅ MEJORADO: Actualizar producto con auth
   async updateProduct(id: string, productData: any) {
-    // ✅ USAR URLs DINÁMICAS
     const url = getApiUrl(`/products/${id}`)
-    console.log("🔗 Actualizando producto:", url)
-    console.log("📦 Datos de actualización:", productData)
+    console.log("🔗 Actualizando producto:", url, productData)
 
     try {
       const response = await fetch(url, {
         method: "PUT",
-        headers: this.getHeaders(true), // ✅ CON AUTH
+        headers: this.getHeaders(true),
         credentials: "include",
         body: JSON.stringify(productData),
       })
@@ -195,15 +194,9 @@ class ProductService {
         const errorData = await response.json().catch(() => ({}))
         console.error("❌ Error en updateProduct:", response.status, errorData)
 
-        if (response.status === 401) {
-          throw new Error("No estás autenticado. Por favor inicia sesión.")
-        }
-        if (response.status === 403) {
-          throw new Error("No tienes permisos para actualizar productos.")
-        }
-        if (response.status === 404) {
-          throw new Error("Producto no encontrado.")
-        }
+        if (response.status === 401) throw new Error("No estás autenticado. Por favor inicia sesión.")
+        if (response.status === 403) throw new Error("No tienes permisos para actualizar productos.")
+        if (response.status === 404) throw new Error("Producto no encontrado.")
         if (response.status === 400) {
           throw new Error(
             Array.isArray(errorData.message)
@@ -211,14 +204,9 @@ class ProductService {
               : errorData.message || "Datos de actualización inválidos."
           )
         }
-        if (response.status === 409) {
-          throw new Error("Conflicto: Ya existe un producto con estos datos.")
-        }
+        if (response.status === 409) throw new Error("Conflicto: Ya existe un producto con estos datos.")
 
-        throw new Error(
-          errorData.message ||
-            `Error ${response.status}: ${response.statusText}`
-        )
+        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -230,11 +218,7 @@ class ProductService {
     }
   }
 
-  // ✅ BONUS: Obtener productos relacionados
-  async getRelatedProducts(
-    productId: string,
-    limit: number = 4
-  ): Promise<ProductDetailResponse[]> {
+  async getRelatedProducts(productId: string, limit: number = 4): Promise<ProductDetailResponse[]> {
     const url = getApiUrl(`/products/${productId}/related?limit=${limit}`)
     console.log("🔗 Obteniendo productos relacionados:", url)
 
@@ -259,7 +243,7 @@ class ProductService {
     }
   }
 
-  // ✅ BONUS: Obtener reseñas del producto
+  // 🛈 Este endpoint sigue siendo útil si tenés paginación de reseñas aparte.
   async getProductReviews(
     productId: string,
     page: number = 1,
@@ -276,11 +260,7 @@ class ProductService {
     totalCount: number
     averageRating: number
   }> {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
-    })
-
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
     const url = getApiUrl(`/products/${productId}/reviews?${params.toString()}`)
     console.log("🔗 Obteniendo reseñas del producto:", url)
 
@@ -305,66 +285,6 @@ class ProductService {
     }
   }
 
-  // ✅ BONUS: Crear reseña de producto
-  async createProductReview(
-    productId: string,
-    reviewData: {
-      rating: number
-      comment: string
-    }
-  ): Promise<any> {
-    const url = getApiUrl(`/products/${productId}/reviews`)
-    console.log("🔗 Creando reseña del producto:", url)
-
-    // Validar rating
-    if (reviewData.rating < 1 || reviewData.rating > 5) {
-      throw new Error("La calificación debe estar entre 1 y 5.")
-    }
-
-    if (!reviewData.comment || reviewData.comment.trim().length < 10) {
-      throw new Error("El comentario debe tener al menos 10 caracteres.")
-    }
-
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: this.getHeaders(true), // ✅ CON AUTH
-        credentials: "include",
-        body: JSON.stringify({
-          rating: reviewData.rating,
-          comment: reviewData.comment.trim(),
-        }),
-      })
-
-      console.log("📡 Create review response status:", response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("❌ Error creando reseña:", response.status, errorData)
-
-        if (response.status === 401) {
-          throw new Error("Debes iniciar sesión para escribir una reseña.")
-        }
-        if (response.status === 403) {
-          throw new Error("No puedes reseñar este producto.")
-        }
-        if (response.status === 409) {
-          throw new Error("Ya has reseñado este producto.")
-        }
-
-        throw new Error(errorData.message || "Error al crear la reseña.")
-      }
-
-      const data = await response.json()
-      console.log("✅ Reseña creada exitosamente")
-      return data
-    } catch (error) {
-      console.error("❌ Create review error:", error)
-      throw error
-    }
-  }
-
-  // ✅ BONUS: Verificar disponibilidad de stock
   async checkProductStock(productId: string): Promise<{
     available: boolean
     stock: number
@@ -383,12 +303,7 @@ class ProductService {
 
       if (!response.ok) {
         console.log("⚠️ No se pudo verificar el stock")
-        return {
-          available: false,
-          stock: 0,
-          reservedStock: 0,
-          availableStock: 0,
-        }
+        return { available: false, stock: 0, reservedStock: 0, availableStock: 0 }
       }
 
       const data = await response.json()
@@ -400,16 +315,8 @@ class ProductService {
     }
   }
 
-  // ✅ BONUS: Obtener variantes del producto (tallas, colores, etc.)
   async getProductVariants(productId: string): Promise<
-    Array<{
-      id: string
-      name: string
-      value: string
-      price?: number
-      stock?: number
-      available: boolean
-    }>
+    Array<{ id: string; name: string; value: string; price?: number; stock?: number; available: boolean }>
   > {
     const url = getApiUrl(`/products/${productId}/variants`)
     console.log("🔗 Obteniendo variantes del producto:", url)
@@ -435,32 +342,21 @@ class ProductService {
     }
   }
 
-  // ✅ BONUS: Marcar producto como favorito
-  async toggleProductFavorite(
-    productId: string
-  ): Promise<{ isFavorite: boolean }> {
+  async toggleProductFavorite(productId: string): Promise<{ isFavorite: boolean }> {
     const url = getApiUrl(`/products/${productId}/favorite`)
     console.log("🔗 Cambiando estado de favorito:", url)
 
     try {
       const response = await fetch(url, {
         method: "POST",
-        headers: this.getHeaders(true), // ✅ CON AUTH
+        headers: this.getHeaders(true),
         credentials: "include",
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error(
-          "❌ Error cambiando favorito:",
-          response.status,
-          errorData
-        )
-
-        if (response.status === 401) {
-          throw new Error("Debes iniciar sesión para marcar favoritos.")
-        }
-
+        console.error("❌ Error cambiando favorito:", response.status, errorData)
+        if (response.status === 401) throw new Error("Debes iniciar sesión para marcar favoritos.")
         throw new Error("Error al marcar como favorito.")
       }
 
@@ -473,11 +369,7 @@ class ProductService {
     }
   }
 
-  // ✅ BONUS: Obtener productos similares por categoría
-  async getSimilarProducts(
-    productId: string,
-    limit: number = 6
-  ): Promise<ProductDetailResponse[]> {
+  async getSimilarProducts(productId: string, limit: number = 6): Promise<ProductDetailResponse[]> {
     const url = getApiUrl(`/products/${productId}/similar?limit=${limit}`)
     console.log("🔗 Obteniendo productos similares:", url)
 

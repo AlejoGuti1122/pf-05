@@ -9,6 +9,7 @@ export interface UserProfile {
   avatar?: string
   isAdmin: boolean
   isSuperAdmin?: boolean
+  avatarResolved?: string
 }
 
 export interface UpdateProfileRequest {

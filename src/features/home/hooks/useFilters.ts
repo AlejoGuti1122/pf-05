@@ -1,31 +1,37 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // hooks/useProductsFiltered.ts
-import { useState, useEffect, useMemo, useCallback } from "react"
+'use client';
+
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   FilterState,
   ProductResponse,
   ProductQueryParams,
-} from "../types/filters"
-import filtersService from "../services/service-filters"
+} from "../types/filters";
+import { filtersService } from "../services/service-filters";
 
 interface UseProductsFilteredProps {
-  searchTerm?: string
-  filters: FilterState
-  sortBy: "name" | "price" | "brand" | "year"
-  sortOrder: "asc" | "desc"
-  page?: number
-  limit?: number
+  searchTerm?: string;
+  filters: FilterState;
+  sortBy: "name" | "price" | "brand" | "year";
+  sortOrder: "asc" | "desc";
+  page?: number;
+  limit?: number;
 }
 
 interface UseProductsFilteredReturn {
-  products: ProductResponse[]
-  loading: boolean
-  error: string | null
-  availableBrands: string[]
-  totalCount: number
-  refetch: () => void
+  products: ProductResponse[];
+  loading: boolean;
+  error: string | null;
+  availableBrands: string[];
+  availableModels: string[];
+  availableEngines: string[];
+  availableCategories: { id: string; name: string }[];
+  totalCount: number;
+  refetch: () => void;
 }
 
-export const useProductsFiltered = ({
+const useProductsFiltered = ({
   searchTerm = "",
   filters,
   sortBy,
@@ -33,143 +39,168 @@ export const useProductsFiltered = ({
   page = 1,
   limit = 50,
 }: UseProductsFilteredProps): UseProductsFilteredReturn => {
-  const [products, setProducts] = useState<ProductResponse[]>([])
-  const [availableBrands, setAvailableBrands] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [totalCount, setTotalCount] = useState(0)
+  const [products, setProducts] = useState<ProductResponse[]>([]);
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [availableEngines, setAvailableEngines] = useState<string[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Convertir FilterState a parámetros de API
-  const apiParams: ProductQueryParams = useMemo(() => {
-    const params: ProductQueryParams = {
+  // ------- Build API params from FilterState -------
+  const apiParams: ProductQueryParams & {
+    brands?: string[];
+    models?: string[];
+    engines?: string[];
+    categoryId?: string | null;
+  } = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+
+    const params: any = {
       limit,
       page,
-      search: searchTerm || undefined,
+      search: searchTerm.trim() || undefined,
       sortBy,
       sortOrder,
+    };
+
+    // Year filters
+    if (filters.yearRange?.min && filters.yearRange.min > 0) {
+      params.yearMin = filters.yearRange.min;
+    }
+    if (
+      filters.yearRange?.max &&
+      filters.yearRange.max > 0 &&
+      filters.yearRange.max <= currentYear
+    ) {
+      params.yearMax = filters.yearRange.max;
     }
 
-    // Filtros de precio
-    if (filters.priceRange.min > 0) {
-      params.priceMin = filters.priceRange.min
+    // Brand/Model/Engine as arrays
+    if (filters.selectedBrands?.length) {
+      params.brands = filters.selectedBrands;
     }
-    if (filters.priceRange.max < Infinity) {
-      params.priceMax = filters.priceRange.max
+    if (filters.selectedModels?.length) {
+      params.models = filters.selectedModels;
     }
-
-    // Filtros de año
-    if (filters.yearRange.min > 0) {
-      params.yearMin = filters.yearRange.min
-    }
-    if (filters.yearRange.max < new Date().getFullYear()) {
-      params.yearMax = filters.yearRange.max
+    if (filters.selectedEngines?.length) {
+      params.engines = filters.selectedEngines;
     }
 
-
-    // Filtros de marcas (convertir array a CSV)
-    if (filters.selectedBrands.length > 0) {
-      params.brands = filters.selectedBrands.join(",")
+    // Category
+    if (filters.categoryId) {
+      params.categoryId = filters.categoryId;
     }
 
-    // ✅ DEBUG: Ver qué parámetros se están enviando
-    
-    console.log("🔍 HOOK - apiParams:", params)
+    return params;
+  }, [searchTerm, filters, sortBy, sortOrder, page, limit]);
 
-    return params
-  }, [searchTerm, filters, sortBy, sortOrder, page, limit])
-
-  // Función para obtener productos (estabilizada con useCallback)
+  // ------- Fetch products -------
   const fetchProducts = useCallback(async () => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      console.log("🚀 HOOK - Fetching products with params:", apiParams)
-      const data = await filtersService.getProducts(apiParams)
-      console.log("📦 HOOK - API returned:", data.length, "products")
+      const data = await filtersService.getProductsWithSort(apiParams);
 
-      // ✅ FILTRAR productos de seeder que no quieres mostrar
-      const productsToHide = [
+      // Optional: hide seeder items
+      const HIDE = new Set<string>([
         "Aceite Castrol 10W40",
         "Amortiguador Monroe",
         "Bujía NGK Iridium",
         "Filtro de Aceite Bosch",
         "Pastilla de Freno Brembo",
-      ]
+      ]);
 
-      const filteredProducts = data.filter(
-        (product) => !productsToHide.includes(product.name)
-      )
+      const filtered = data.filter((p) => !HIDE.has(p.name));
 
-      // ✅ Mapear la respuesta para agregar categoryId si no existe
-      const mappedProducts = filteredProducts.map((product) => ({
-        ...product,
-        categoryId: product.categoryId || product.category?.id || "",
-      }))
+      const mapped = filtered.map((p: any) => ({
+        ...p,
+        categoryId: p.categoryId || p.category?.id || "",
+      }));
 
-      // ✅ DEBUG: Ver productos por stock
-      const inStockProducts = mappedProducts.filter((p) => p.stock > 0)
-      const outOfStockProducts = mappedProducts.filter((p) => p.stock <= 0)
-
-      console.log("📊 HOOK - Productos en stock:", inStockProducts.length)
-      console.log("📊 HOOK - Productos sin stock:", outOfStockProducts.length)
-      console.log("📊 HOOK - Total productos:", mappedProducts.length)
-
-      setProducts(mappedProducts)
-      setTotalCount(mappedProducts.length)
-    } catch (err) {
-      console.error("❌ HOOK - Error:", err)
-      setError(err instanceof Error ? err.message : "Error desconocido")
-      setProducts([])
+      setProducts(mapped);
+      setTotalCount(mapped.length);
+    } catch (err: any) {
+      console.error("❌ HOOK - Error:", err);
+      setError(err?.message || "Error desconocido");
+      setProducts([]);
+      setTotalCount(0);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [apiParams])
+  }, [apiParams]);
 
-  // Función para obtener marcas disponibles (optimizada)
-  const fetchBrands = useCallback(async () => {
+  // ------- Fetch facets -------
+  const fetchFacets = useCallback(async () => {
     try {
-      const brands = await filtersService.getBrands()
-      setAvailableBrands(brands)
-    } catch (err) {
-      console.error("Error fetching brands:", err)
-      setAvailableBrands([])
+      const facets = await filtersService.getFacets();
+      setAvailableBrands(facets.brands || []);
+      setAvailableModels(facets.models || []);
+      setAvailableEngines(facets.engines || []);
+      setAvailableCategories(facets.categories || []);
+    } catch (e) {
+      console.warn("⚠️ Facets endpoint no disponible, usando fallback");
+      try {
+        const sample = await filtersService.getProducts({ limit: 1000 });
+        const brands = Array.from(
+          new Set(sample.map((p: any) => p.brand).filter(Boolean))
+        ).sort();
+        const models = Array.from(
+          new Set(sample.map((p: any) => p.model).filter(Boolean))
+        ).sort();
+        const engines = Array.from(
+          new Set(sample.map((p: any) => p.engine).filter(Boolean))
+        ).sort();
+        const cMap = new Map<string, string>();
+        sample.forEach((p: any) => {
+          const id = p.category?.id || p.categoryId;
+          const name = p.category?.name || p.categoryName;
+          if (id && name && !cMap.has(id)) cMap.set(id, name);
+        });
+        setAvailableBrands(brands);
+        setAvailableModels(models);
+        setAvailableEngines(engines);
+        setAvailableCategories(Array.from(cMap, ([id, name]) => ({ id, name })));
+      } catch (err) {
+        console.error("❌ Error derivando facets:", err);
+        setAvailableBrands([]);
+        setAvailableModels([]);
+        setAvailableEngines([]);
+        setAvailableCategories([]);
+      }
     }
-  }, [])
+  }, []);
 
-  // Efectos
+  // Effects
   useEffect(() => {
-    fetchProducts()
-  }, [fetchProducts])
+    fetchProducts();
+  }, [fetchProducts]);
 
   useEffect(() => {
-    fetchBrands()
-  }, [fetchBrands])
+    fetchFacets();
+  }, [fetchFacets]);
 
-  // ✅ Efecto separado para extraer marcas de productos como fallback
-  useEffect(() => {
-    if (products.length > 0 && availableBrands.length === 0) {
-      const brandsFromProducts = [
-        ...new Set(products.map((p) => p.brand)),
-      ].sort()
-      setAvailableBrands(brandsFromProducts)
-    }
-  }, [products, availableBrands.length])
-
-  // Función para refetch manual (estabilizada)
   const refetch = useCallback(() => {
-    fetchProducts()
-    fetchBrands()
-  }, [fetchProducts, fetchBrands])
+    fetchProducts();
+    fetchFacets();
+  }, [fetchProducts, fetchFacets]);
 
   return {
     products,
     loading,
     error,
     availableBrands,
+    availableModels,
+    availableEngines,
+    availableCategories,
     totalCount,
     refetch,
-  }
-}
+  };
+};
 
-export default useProductsFiltered
+export default useProductsFiltered;
+export { useProductsFiltered };
