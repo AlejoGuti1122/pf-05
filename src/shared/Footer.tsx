@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect, useState, useRef } from "react"
 import {
   Car,
   Phone,
@@ -19,8 +19,32 @@ import {
 } from "lucide-react"
 
 const RepuStoreFooter = () => {
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
+  const [open, setOpen] = useState(false)     // ← controla abrir/cerrar solo con la flecha
+  const [atTop, setAtTop] = useState(true)    // ← solo para rotación de flecha/label
+  const footerRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setAtTop(window.scrollY < 100)
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    handleScroll()
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  const handleArrowClick = () => {
+    if (!open) {
+      // Abrir footer y bajar al final
+      setOpen(true)
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: "smooth",
+      })
+    } else {
+      // Cerrar footer y subir arriba
+      setOpen(false)
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
   }
 
   const categories = [
@@ -50,16 +74,32 @@ const RepuStoreFooter = () => {
   ]
 
   return (
-    <footer className="bg-black text-white relative">
-      {/* Scroll to top button */}
+    <footer
+      ref={footerRef}
+      className={`
+        fixed left-0 right-0 bottom-0 z-40 bg-black text-white
+        transition-transform duration-300 ease-out
+        ${open ? "translate-y-0" : "translate-y-[calc(100%-28px)]"}
+      `}
+    >
+      {/* Flecha visible siempre (asomando por arriba del footer) */}
       <button
-        onClick={scrollToTop}
-        className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110"
+        onClick={handleArrowClick}
+        className="
+          absolute -top-6 left-1/2 -translate-x-1/2
+          bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg
+          transition-all duration-300 hover:scale-110
+        "
+        aria-label={open ? "Ir arriba" : "Ir al footer"}
       >
-        <ArrowUp className="w-6 h-6" />
+        <ArrowUp
+          className={`w-6 h-6 transition-transform duration-300 ${
+            !open ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
-      {/* Services Banner */}
+      {/* Banner de servicios */}
       <div className="bg-red-600 py-6">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -81,11 +121,11 @@ const RepuStoreFooter = () => {
         </div>
       </div>
 
-      {/* Main Footer Content */}
+      {/* Contenido principal del footer */}
       <div className="py-12 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Company Info */}
+            {/* Información de la empresa */}
             <div className="lg:col-span-1">
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-red-600 p-3 rounded-lg">
@@ -98,8 +138,7 @@ const RepuStoreFooter = () => {
               </div>
 
               <p className="text-gray-300 mb-6 leading-relaxed">
-                Tu tienda de confianza para repuestos automotrices. Más de 15
-                años brindando calidad y servicio excepcional en Colombia.
+                Tu tienda de confianza para repuestos automotrices. Más de 15 años brindando calidad y servicio excepcional en Colombia.
               </p>
 
               <div className="space-y-3">
@@ -126,7 +165,7 @@ const RepuStoreFooter = () => {
               </div>
             </div>
 
-            {/* Categories */}
+            {/* Categorías */}
             <div>
               <h3 className="text-lg font-semibold text-white mb-6 border-b-2 border-red-600 pb-2 inline-block">
                 Categorías Populares
@@ -145,7 +184,7 @@ const RepuStoreFooter = () => {
               </div>
             </div>
 
-            {/* Brands */}
+            {/* Marcas */}
             <div>
               <h3 className="text-lg font-semibold text-white mb-6 border-b-2 border-red-600 pb-2 inline-block">
                 Marcas Disponibles
@@ -161,131 +200,62 @@ const RepuStoreFooter = () => {
                   </a>
                 ))}
               </div>
-
-              <div className="mt-6 p-4 bg-gray-900 rounded-lg border border-gray-800">
-                <h4 className="font-semibold text-white mb-2">
-                  💡 ¿No encuentras tu marca?
-                </h4>
-                <p className="text-gray-400 text-sm mb-3">
-                  Contáctanos y te ayudamos a encontrar el repuesto que
-                  necesitas.
-                </p>
-                <button className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-                  Contactar Ahora
-                </button>
-              </div>
             </div>
 
             {/* Newsletter & Social */}
             <div>
               <h3 className="text-lg font-semibold text-white mb-6 border-b-2 border-red-600 pb-2 inline-block">
-                Mantente Conectado
+                Nuestra Ubicación
               </h3>
 
               <div className="mb-6">
-                <p className="text-gray-300 text-sm mb-4">
-                  Suscríbete y recibe ofertas exclusivas y novedades sobre
-                  repuestos.
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    placeholder="tu@email.com"
-                    className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
-                  />
-                  <button className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                    Suscribir
-                  </button>
+                
+                <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-700">
+                  <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d13727.225136246135!2d-64.1674014!3d-31.4375425!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9432a2c48940c927%3A0xf232f3c423de3538!2sLa%20Casa%20del%20Embrague%20SRL!5e0!3m2!1ses!2sar!4v1693689594024!5m2!1ses!2sar"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen={true}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  ></iframe>
                 </div>
               </div>
-
-              <div className="mb-6">
-                <h4 className="font-semibold text-white mb-3">Síguenos</h4>
-                <div className="flex gap-3">
-                  <a
-                    href="#"
-                    className="bg-gray-800 hover:bg-red-600 p-3 rounded-lg transition-colors group"
-                  >
-                    <Facebook className="w-5 h-5 text-gray-300 group-hover:text-white" />
-                  </a>
-                  <a
-                    href="#"
-                    className="bg-gray-800 hover:bg-red-600 p-3 rounded-lg transition-colors group"
-                  >
-                    <Instagram className="w-5 h-5 text-gray-300 group-hover:text-white" />
-                  </a>
-                  <a
-                    href="#"
-                    className="bg-gray-800 hover:bg-red-600 p-3 rounded-lg transition-colors group"
-                  >
-                    <Twitter className="w-5 h-5 text-gray-300 group-hover:text-white" />
-                  </a>
-                  <a
-                    href="#"
-                    className="bg-gray-800 hover:bg-red-600 p-3 rounded-lg transition-colors group"
-                  >
-                    <Youtube className="w-5 h-5 text-gray-300 group-hover:text-white" />
-                  </a>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-r from-red-600/20 to-red-700/20 border border-red-600/30 rounded-lg p-4">
-                <h4 className="font-semibold text-red-400 mb-2">
-                  🚗 Instalación Profesional
-                </h4>
-                <p className="text-gray-300 text-sm">
-                  Ofrecemos servicio de instalación con mecánicos certificados.
-                </p>
+              <div className="flex gap-3">
+                <a href="#" className="bg-gray-800 hover:bg-red-600 p-3 rounded-lg">
+                  <Facebook className="w-5 h-5 text-gray-300 group-hover:text-white" />
+                </a>
+                <a href="#" className="bg-gray-800 hover:bg-red-600 p-3 rounded-lg">
+                  <Instagram className="w-5 h-5 text-gray-300 group-hover:text-white" />
+                </a>
+                <a href="#" className="bg-gray-800 hover:bg-red-600 p-3 rounded-lg">
+                  <Twitter className="w-5 h-5 text-gray-300 group-hover:text-white" />
+                </a>
+                <a href="#" className="bg-gray-800 hover:bg-red-600 p-3 rounded-lg">
+                  <Youtube className="w-5 h-5 text-gray-300 group-hover:text-white" />
+                </a>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Bar */}
+      {/* Barra inferior */}
       <div className="border-t border-gray-800 py-6 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-center md:text-left">
-              <p className="text-gray-400 text-sm">
-                © 2025 RepuStore. Todos los derechos reservados.
-              </p>
-              <p className="text-gray-500 text-xs mt-1">
-                Desarrollado con ❤️ en Manizales, Colombia
-              </p>
+              <p className="text-gray-400 text-sm">© 2025 RepuStore. Todos los derechos reservados.</p>
+              <p className="text-gray-500 text-xs mt-1">Desarrollado con ❤️ en Manizales, Colombia</p>
             </div>
 
             <div className="flex flex-wrap justify-center gap-6 text-sm">
-              <a
-                href="#"
-                className="text-gray-400 hover:text-red-400 transition-colors"
-              >
-                Política de Privacidad
-              </a>
-              <a
-                href="#"
-                className="text-gray-400 hover:text-red-400 transition-colors"
-              >
-                Términos de Servicio
-              </a>
-              <a
-                href="#"
-                className="text-gray-400 hover:text-red-400 transition-colors"
-              >
-                Garantías
-              </a>
-              <a
-                href="#"
-                className="text-gray-400 hover:text-red-400 transition-colors"
-              >
-                Devoluciones
-              </a>
-              <a
-                href="#"
-                className="text-gray-400 hover:text-red-400 transition-colors"
-              >
-                Ayuda
-              </a>
+              <a href="#" className="text-gray-400 hover:text-red-400 transition-colors">Política de Privacidad</a>
+              <a href="#" className="text-gray-400 hover:text-red-400 transition-colors">Términos de Servicio</a>
+              <a href="#" className="text-gray-400 hover:text-red-400 transition-colors">Garantías</a>
+              <a href="#" className="text-gray-400 hover:text-red-400 transition-colors">Devoluciones</a>
+              <a href="#" className="text-gray-400 hover:text-red-400 transition-colors">Ayuda</a>
             </div>
           </div>
         </div>

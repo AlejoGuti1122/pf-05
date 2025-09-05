@@ -7,78 +7,57 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { toast } from "sonner"
 import { AddItemToCartRequest, Cart } from "../types/cart"
 import { cartService } from "../services/services-cart"
+import { Product } from "@/features/productos/types/products"
 
 export const useCart = () => {
   const [cart, setCart] = useState<Cart | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Función helper para manejar errores
+  // ---- Errores
   const handleError = useCallback((error: any, defaultMessage: string) => {
     const message = error?.message || defaultMessage
     setError(message)
     toast.error(message)
   }, [])
 
-  // Cargar carrito inicial
+  // ---- Cargar carrito
   const fetchCart = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
-      console.log("🔄 Cargando carrito...") // Debug
 
-      // ✅ Llamar directamente al API y adaptar la respuesta
       const response = await cartService.getCurrentCart()
 
-      console.log("📦 Respuesta cruda del servicio:", response) // Debug
+      // Adaptar respuesta según API (puede venir en .data o plano)
+      const cartData: Cart | null =
+        response && typeof response === "object" && "data" in response
+          ? (response.data as Cart)
+          : (response as Cart)
 
-      // ✅ Adaptar la respuesta según lo que devuelve tu API
-      let cartData: Cart | null = null
-
-      // Si la respuesta tiene .data, usarlo, sino usar la respuesta directamente
-      if (response && typeof response === "object" && "data" in response) {
-        cartData = response.data as Cart
-      } else {
-        cartData = response as Cart
-      }
-
-      console.log("📦 Carrito adaptado:", cartData) // Debug
-      console.log("📦 Claves del carrito:", Object.keys(cartData || {})) // Debug
-      console.log("📦 Items en carrito:", cartData?.items?.length || 0) // Debug
-
-      setCart(cartData)
-
-      // ✅ AGREGAR: Log después de actualizar el estado
-      console.log("✅ Estado del carrito actualizado") // Debug
-    } catch (error) {
-      console.error("❌ Error cargando carrito:", error) // Debug
-      handleError(error, "Error al cargar el carrito")
+      setCart(cartData ?? { items: [], summary: { total: 0, subtotal: 0 } } as Cart)
+    } catch (err) {
+      handleError(err, "Error al cargar el carrito")
     } finally {
       setIsLoading(false)
     }
   }, [handleError])
 
-  // Agregar item al carrito
+  // ---- Agregar item (request plano)
   const addItem = useCallback(
     async (data: AddItemToCartRequest) => {
       try {
         setIsLoading(true)
         setError(null)
-        console.log("🛒 Agregando al carrito:", data) // Debug
 
-        const addResponse = await cartService.addItem(data)
-        console.log("✅ Respuesta de agregar item:", addResponse) // Debug
+        // Normalizar cantidad mínima
+        const quantity = Math.max(1, Math.floor(Number(data.quantity ?? 1)))
+        await cartService.addItem({ ...data, quantity })
 
-        // Refrescar el carrito después de agregar
-        console.log("🔄 Refrescando carrito después de agregar...") // Debug
         await fetchCart()
-
-        console.log("🎯 Carrito refrescado, verificando nuevo estado...") // Debug
-
-        toast.success("Producto agregado al carrito correctamente")
-      } catch (error) {
-        console.error("❌ Error agregando al carrito:", error) // Debug
-        handleError(error, "Error al agregar producto al carrito")
+        toast.success("Producto agregado al carrito")
+      } catch (err) {
+        handleError(err, "Error al agregar producto al carrito")
       } finally {
         setIsLoading(false)
       }
@@ -86,21 +65,38 @@ export const useCart = () => {
     [fetchCart, handleError]
   )
 
-  // Actualizar cantidad de un item
+  // ---- Helper: agregar por producto
+  const addProduct = useCallback(
+    async (product: Product, qty: number = 1) => {
+      if (!product?.id) {
+        toast.error("Producto inválido")
+        return
+      }
+      const quantity = Math.max(1, Math.floor(qty))
+      await addItem({ productId: product.id, quantity })
+    },
+    [addItem]
+  )
+
+  // ---- Actualizar cantidad
   const updateQuantity = useCallback(
     async (itemId: string, quantity: number) => {
       try {
         setIsLoading(true)
         setError(null)
 
-        await cartService.updateItemQuantity(itemId, { quantity })
+        const normalized = Math.floor(Number(quantity))
+        if (normalized <= 0) {
+          // Si piden 0 o menos, eliminar el ítem
+          await cartService.removeItem(itemId)
+        } else {
+          await cartService.updateItemQuantity(itemId, { quantity: normalized })
+        }
 
-        // Refrescar el carrito
         await fetchCart()
-
-        toast.success("Cantidad actualizada correctamente")
-      } catch (error) {
-        handleError(error, "Error al actualizar la cantidad")
+        toast.success("Cantidad actualizada")
+      } catch (err) {
+        handleError(err, "Error al actualizar la cantidad")
       } finally {
         setIsLoading(false)
       }
@@ -108,7 +104,7 @@ export const useCart = () => {
     [fetchCart, handleError]
   )
 
-  // Eliminar item del carrito
+  // ---- Eliminar item
   const removeItem = useCallback(
     async (itemId: string) => {
       try {
@@ -116,13 +112,11 @@ export const useCart = () => {
         setError(null)
 
         await cartService.removeItem(itemId)
-
-        // Refrescar el carrito
         await fetchCart()
 
-        toast.success("Producto eliminado del carrito correctamente")
-      } catch (error) {
-        handleError(error, "Error al eliminar el producto")
+        toast.success("Producto eliminado del carrito")
+      } catch (err) {
+        handleError(err, "Error al eliminar el producto")
       } finally {
         setIsLoading(false)
       }
@@ -130,58 +124,66 @@ export const useCart = () => {
     [fetchCart, handleError]
   )
 
-  // Vaciar carrito completo
+  // ---- Vaciar carrito
   const clearCart = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
 
       await cartService.clearCart()
-      setCart(null)
+      setCart({ items: [], summary: { total: 0, subtotal: 0 } } as Cart)
 
-      toast.success("Se eliminaron todos los productos del carrito")
-    } catch (error) {
-      handleError(error, "Error al vaciar el carrito")
+      toast.success("Se vació el carrito")
+    } catch (err) {
+      handleError(err, "Error al vaciar el carrito")
     } finally {
       setIsLoading(false)
     }
   }, [handleError])
 
-  // Refrescar/revalidar carrito
+  // ---- Revalidar/actualizar precios y stock
   const refreshCart = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
 
       const response = await cartService.refreshCart()
-      setCart(response.data)
+      const cartData: Cart =
+        response && typeof response === "object" && "data" in response
+          ? (response.data as Cart)
+          : (response as Cart)
 
-      toast.success("Los precios y stock se han actualizado")
-    } catch (error) {
-      handleError(error, "Error al actualizar el carrito")
+      setCart(cartData)
+      toast.success("Precios y stock actualizados")
+    } catch (err) {
+      handleError(err, "Error al actualizar el carrito")
     } finally {
       setIsLoading(false)
     }
   }, [handleError])
 
-  // Fusionar carritos (útil cuando un guest se registra)
+  // ---- Fusionar carritos (guest → usuario)
   const mergeCarts = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
 
       const response = await cartService.mergeCarts()
-      setCart(response.data)
+      const cartData: Cart =
+        response && typeof response === "object" && "data" in response
+          ? (response.data as Cart)
+          : (response as Cart)
 
-      toast.success("Los carritos se fusionaron correctamente")
-    } catch (error) {
-      handleError(error, "Error al fusionar los carritos")
+      setCart(cartData)
+      toast.success("Carritos fusionados")
+    } catch (err) {
+      handleError(err, "Error al fusionar carritos")
     } finally {
       setIsLoading(false)
     }
   }, [handleError])
 
-  // Validar carrito para checkout
+  // ---- Validar carrito antes de checkout
   const validateForCheckout = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -189,60 +191,37 @@ export const useCart = () => {
 
       const result = await cartService.validateCartForCheckout()
 
-      if (!result.valid && result.errors) {
+      if (!result?.valid && result?.errors?.length) {
         toast.error(`Carrito no válido: ${result.errors.join(", ")}`)
       }
-
       return result
-    } catch (error) {
-      handleError(error, "Error al validar el carrito")
+    } catch (err) {
+      handleError(err, "Error al validar el carrito")
       return { success: false, valid: false }
     } finally {
       setIsLoading(false)
     }
   }, [handleError])
 
-  // Cargar carrito al montar el componente
+  // ---- Cargar al montar
   useEffect(() => {
     fetchCart()
   }, [fetchCart])
 
-  // ✅ CORREGIDO: Computed values con useMemo para mejor reactividad
+  // ---- Derivados
   const itemCount = useMemo(() => {
-    const count = cart?.items?.length || 0
-    console.log("🎯 Calculando itemCount:", count, "desde items:", cart?.items) // Debug
-    return count
+    // suma de cantidades (no cantidad de líneas)
+    const qty =
+      cart?.items?.reduce((acc, it: any) => acc + Number(it?.quantity || 0), 0) || 0
+    return qty
   }, [cart?.items])
 
   const total = useMemo(() => {
-    // ✅ CORREGIDO: Acceder al total desde cart.summary según la estructura real
-    const totalValue = cart?.summary?.total || cart?.summary?.subtotal || 0
-    console.log("🎯 Calculando total:", totalValue) // Debug
-    return totalValue
-  }, [cart?.summary?.total, cart?.summary?.subtotal]) // ✅ CORREGIDO: Dependencias correctas
+    // prioriza total, si no, usa subtotal
+    return Number(cart?.summary?.total ?? cart?.summary?.subtotal ?? 0)
+  }, [cart?.summary?.total, cart?.summary?.subtotal])
 
-  const isEmpty = useMemo(() => {
-    const empty = itemCount === 0
-    console.log("🎯 Calculando isEmpty:", empty) // Debug
-    return empty
-  }, [itemCount])
-
-  // ✅ AGREGAR: useEffect para debug cuando cambia el itemCount
-  useEffect(() => {
-    console.log("🔔 itemCount cambió a:", itemCount)
-  }, [itemCount])
-
-  // ✅ AGREGAR: useEffect para debug cuando cambia el cart
-  useEffect(() => {
-    console.log("🔔 Cart cambió:", cart)
-  }, [cart])
-
-  console.log("🎯 Hook useCart - Valores actuales:", {
-    itemCount,
-    total,
-    isEmpty,
-  }) // Debug
-  console.log("🎯 Cart items actuales:", cart?.items) // Debug
+  const isEmpty = useMemo(() => itemCount === 0, [itemCount])
 
   return {
     // Estado
@@ -250,14 +229,15 @@ export const useCart = () => {
     isLoading,
     error,
 
-    // Computed values
-    itemCount,
+    // Computados
+    itemCount, // suma de cantidades
     total,
     isEmpty,
 
     // Acciones
-    addItem,
-    updateQuantity,
+    addItem,            // recibe { productId, quantity, ... }
+    addProduct,         // recibe (product, qty)
+    updateQuantity,     // cambia cantidad / elimina si qty<=0
     removeItem,
     clearCart,
     refreshCart,

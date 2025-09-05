@@ -9,7 +9,6 @@ import { FilterState } from "@/features/home/types/filters"
 import LayoutWrapper from "@/shared/Wrapper"
 
 import Image from "next/image"
-
 import React, { useState, useMemo, useEffect } from "react"
 
 const PageHome = () => {
@@ -21,140 +20,48 @@ const PageHome = () => {
     selectedBrands: [],
     yearRange: { min: 1990, max: new Date().getFullYear() },
   })
-  const [sortBy, setSortBy] = useState<"name" | "price" | "brand" | "year">(
-    "name"
-  )
+  const [sortBy, setSortBy] = useState<"name" | "price" | "brand" | "year">("name")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [showFilters, setShowFilters] = useState(false)
 
   // MANEJAR GOOGLE AUTH Y CARGAR USUARIO
   useEffect(() => {
-    // CAPTURAR TODA LA INFORMACIÓN PARA EL BACKEND
-    console.log("🔍 ===== DEBUG COMPLETO PARA BACKEND =====")
-    console.log("🔍 URL COMPLETA:", window.location.href)
-    console.log("🔍 PATHNAME:", window.location.pathname)
-    console.log("🔍 SEARCH:", window.location.search)
-    console.log("🔍 HASH:", window.location.hash)
-
+    // DEBUG URL/Auth
     const urlParams = new URLSearchParams(window.location.search)
-
-    // TODOS LOS PARÁMETROS
-    console.log("🔍 TODOS LOS PARÁMETROS URL:", Object.fromEntries(urlParams))
-
-    // PARÁMETROS ESPECÍFICOS
     const token = urlParams.get("token")
     const data = urlParams.get("data")
-    const success = urlParams.get("success")
-    const error = urlParams.get("error")
-    const code = urlParams.get("code")
-
-    console.log("🔍 PARÁMETRO token:", token)
-    console.log("🔍 PARÁMETRO data:", data)
-    console.log("🔍 PARÁMETRO success:", success)
-    console.log("🔍 PARÁMETRO error:", error)
-    console.log("🔍 PARÁMETRO code:", code)
-
-    // HEADERS Y OTROS DATOS
-    console.log("🔍 USER AGENT:", navigator.userAgent)
-    console.log("🔍 REFERRER:", document.referrer)
-
-    // DATOS EN LOCALSTORAGE ANTES
-    console.log("🔍 LOCALSTORAGE ANTES:")
-    console.log("  - token:", localStorage.getItem("token"))
-    console.log("  - user:", localStorage.getItem("user"))
-
-    console.log("🔍 ===== FIN DEBUG INICIAL =====")
 
     // NUEVO FORMATO: data con access_token y user
     if (data) {
-      console.log("✅ DETECTADO PARÁMETRO DATA")
       try {
         const parsedData = JSON.parse(decodeURIComponent(data))
-        console.log("🎯 Datos de Google recibidos:", parsedData)
-
-        // Verificar que los datos sean válidos
         const accessToken =
           parsedData.access_Token || parsedData.accessToken || parsedData.token
         if (accessToken && parsedData.user) {
-          // Guardar token en localStorage como tu sistema actual
           localStorage.setItem("token", accessToken)
           localStorage.setItem("user", JSON.stringify(parsedData.user))
-
-          console.log("💾 Token y usuario de Google guardados exitosamente")
-
-          // NUEVO: Solo disparar evento - SIN reload
-          console.log("📡 Notificando a useAuth sobre el cambio...")
           window.dispatchEvent(new CustomEvent("auth-updated"))
-
-          // Limpiar URL de parámetros
-          window.history.replaceState(
-            {},
-            document.title,
-            window.location.pathname
-          )
-
-          console.log(
-            "✅ Login con Google completado - useAuth debería detectar el cambio automáticamente"
-          )
-        } else {
-          console.error("❌ Datos incompletos de Google:", parsedData)
+          window.history.replaceState({}, document.title, window.location.pathname)
         }
-      } catch (error) {
-        console.error("❌ Error parseando datos de Google:", error)
+      } catch {
+        // noop
       }
-    }
-    // FORMATO ANTERIOR: token directo (mantener por compatibilidad)
-    else if (token) {
-      console.log("✅ DETECTADO PARÁMETRO TOKEN (formato anterior)")
-
-      if (
-        token === "[object Object]" ||
-        token.includes("[object") ||
-        token.includes("Object]")
-      ) {
-        console.error("❌ TOKEN MALFORMADO DETECTADO:", token)
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        )
-        return
-      }
-
+    } else if (token) {
       try {
-        localStorage.setItem("token", token)
-        console.log(
-          "💾 Token de Google guardado exitosamente (formato anterior)"
-        )
-
-        // NUEVO: Solo disparar evento - SIN reload
-        console.log("📡 Notificando a useAuth sobre el cambio...")
-        window.dispatchEvent(new CustomEvent("auth-updated"))
-
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        )
-
-        console.log(
-          "✅ Login con Google completado - useAuth debería detectar el cambio automáticamente"
-        )
-      } catch (error) {
-        console.error("❌ Error guardando token de Google:", error)
+        if (
+          token === "[object Object]" ||
+          token.includes("[object") ||
+          token.includes("Object]")
+        ) {
+          window.history.replaceState({}, document.title, window.location.pathname)
+        } else {
+          localStorage.setItem("token", token)
+          window.dispatchEvent(new CustomEvent("auth-updated"))
+          window.history.replaceState({}, document.title, window.location.pathname)
+        }
+      } catch {
+        // noop
       }
-    }
-    // OTROS PARÁMETROS
-    else if (success || error || code) {
-      console.log("✅ DETECTADOS OTROS PARÁMETROS")
-      console.log("🔍 Success:", success)
-      console.log("🔍 Error:", error)
-      console.log("🔍 Code:", code)
-    }
-    // NINGÚN PARÁMETRO RELEVANTE
-    else {
-      console.log("ℹ️ NO SE DETECTARON PARÁMETROS DE GOOGLE AUTH")
-      console.log("ℹ️ Esto es normal si entraste directo a /home")
     }
 
     // Cargar usuario del localStorage
@@ -162,13 +69,10 @@ const PageHome = () => {
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser)
-        console.log("👤 Usuario cargado del localStorage:", parsedUser)
         setCurrentUser(parsedUser)
-      } catch (error) {
-        console.error("❌ Error parsing stored user:", error)
+      } catch {
+        // noop
       }
-    } else {
-      console.log("ℹ️ No hay usuario en localStorage")
     }
   }, [])
 
@@ -181,14 +85,12 @@ const PageHome = () => {
   // RESULTADOS FILTRADOS
   const filteredSearchResults = useMemo(() => {
     if (!searchResults.length) return []
-
     return searchResults
       .filter((product: any) => {
         // Filtro de marca
         if (filters.selectedBrands.length > 0) {
           if (!filters.selectedBrands.includes(product.brand)) return false
         }
-
         // Filtro de año
         if (
           filters.yearRange.min > 1990 ||
@@ -245,15 +147,11 @@ const PageHome = () => {
       setSortOrder((prev: "asc" | "desc") => (prev === "asc" ? "desc" : "asc"))
     } else {
       setSortBy(newSortBy)
-      setSortOrder(
-        newSortBy === "price" || newSortBy === "year" ? "desc" : "asc"
-      )
+      setSortOrder(newSortBy === "price" || newSortBy === "year" ? "desc" : "asc")
     }
   }
 
-  const handleToggleFilters = () => {
-    setShowFilters((prev: boolean) => !prev)
-  }
+  const handleToggleFilters = () => setShowFilters((prev: boolean) => !prev)
 
   const handleClearFilters = () => {
     setFilters({
@@ -267,15 +165,23 @@ const PageHome = () => {
     <LayoutWrapper>
       <div className="min-h-screen bg-gray-50">
         <main className="container mx-auto px-4 py-8">
+          {/* Header: título + botón admin (en desktop) */}
           <section className="mb-8 mt-24">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-800 mb-4">
-                Nuestros Productos
-              </h1>
-              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                Encuentra los mejores repuestos de vehículos con la mejor
-                calidad y garantía
-              </p>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="text-center md:text-left">
+                <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                  Nuestros Productos
+                </h1>
+                <p className="text-lg text-gray-600 max-w-2xl">
+                  Encuentra los mejores repuestos de vehículos con la mejor
+                  calidad y garantía
+                </p>
+              </div>
+
+              {/* Botón admin: visible sólo desde md+ */}
+              <div className="hidden md:block">
+                <ButtonAdmin user={currentUser} />
+              </div>
             </div>
           </section>
 
@@ -283,7 +189,7 @@ const PageHome = () => {
           <div>
             <SearchBarWithAPI
               onResultsChange={handleResultsChange}
-              onSearchTermChange={() => {}} // ✅ Función vacía si no necesitas el término
+              onSearchTermChange={() => {}}
             />
           </div>
 
@@ -305,10 +211,6 @@ const PageHome = () => {
             </div>
           )}
 
-          <div className="mb-4">
-            <ButtonAdmin user={currentUser} />
-          </div>
-
           {/* Mostrar resultados de búsqueda FILTRADOS */}
           {searchResults.length > 0 ? (
             <section className="mt-8">
@@ -324,7 +226,6 @@ const PageHome = () => {
                 )}
               </h2>
 
-              {/* ✅ DEBUG INFO SIMPLIFICADO - Solo marcas y años */}
               {activeFiltersCount > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4 text-sm">
                   <strong>Filtros activos:</strong>
@@ -378,9 +279,7 @@ const PageHome = () => {
                             Stock:{" "}
                             <span
                               className={`font-medium ${
-                                product.stock > 0
-                                  ? "text-green-600"
-                                  : "text-red-600"
+                                product.stock > 0 ? "text-green-600" : "text-red-600"
                               }`}
                             >
                               {product.stock}
@@ -400,8 +299,7 @@ const PageHome = () => {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-gray-500 mb-2">
-                    No se encontraron productos que coincidan con los filtros
-                    aplicados.
+                    No se encontraron productos que coincidan con los filtros aplicados.
                   </p>
                   <button
                     onClick={handleClearFilters}
@@ -436,6 +334,11 @@ const PageHome = () => {
             </section>
           )}
         </main>
+
+        {/* FAB móvil (solo < md) */}
+        <div className="md:hidden fixed bottom-6 right-6 z-40">
+          <ButtonAdmin user={currentUser} />
+        </div>
       </div>
     </LayoutWrapper>
   )

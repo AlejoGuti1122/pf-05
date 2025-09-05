@@ -1,8 +1,10 @@
-// components/ProductDetailModal.tsx - ACTUALIZADO CON FAVORITOS DEL BACKEND
-import React, { useEffect } from "react"
-import { X, Heart, Loader2, AlertCircle } from "lucide-react"
+// components/ProductDetailModal.tsx
+"use client"
+
+import React, { useEffect, useMemo, useState } from "react"
+import { X, Heart, Loader2, AlertCircle, Minus, Plus, Shield } from "lucide-react"
 import Image from "next/image"
-import Product from "../../types/products"
+import { Product } from "../../types/products"
 import useProductDetail from "../../hooks/useProductsDetail"
 import { useFavorites } from "../../../cart/hooks/useFavorites"
 
@@ -10,10 +12,7 @@ interface ProductDetailModalProps {
   isOpen: boolean
   product: Product | null
   onClose: () => void
-  onAddToCart: (product: Product) => void
-  // ✅ REMOVER: Ya no necesitamos estas props
-  // onToggleFavorite: (product: Product) => void
-  // isFavorite: boolean
+  onAddToCart: (product: Product, quantity?: number) => void
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -21,303 +20,290 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
   onClose,
   onAddToCart,
-  // onToggleFavorite, // ✅ REMOVER
-  // isFavorite,      // ✅ REMOVER
 }) => {
-  const { productDetail, loading, error, fetchProductDetail, clearDetail } =
-    useProductDetail()
+  // ---- Hooks SIEMPRE al top-level
+  const { productDetail, loading, error, fetchProductDetail, clearDetail } = useProductDetail()
+  const { toggleFavorite, isFavorite, isLoading: favoritesLoading } = useFavorites()
 
-  // ✅ NUEVO: Hook de favoritos del backend
-  const {
-    toggleFavorite,
-    isFavorite,
-    isLoading: favoritesLoading,
-  } = useFavorites()
+  const [qty, setQty] = useState<number>(1)
+  const [imgErrored, setImgErrored] = useState(false)
 
-  // Función para obtener el ID del producto
-  const getProductId = (product: Product) => {
-    // Ajusta según tu estructura de datos
-    // Si tu Product tiene id:
-    if ("id" in product && product.id) {
-      return product.id as string
-    }
-    // Si necesitas generar ID de otra forma, ajusta aquí
-    return null
-  }
-
-  // ✅ NUEVO: Handler interno para favoritos
-  const handleToggleFavorite = async () => {
-    if (!product?.id) {
-      console.error("❌ Producto sin ID válido:", product)
-      return
-    }
-
-    await toggleFavorite(product.id)
-  }
-
-  // ✅ NUEVO: Verificar si es favorito usando el ID del producto
-  const isProductFavorite = product ? isFavorite(product.id) : false
+  // Helpers
+  const productId = product?.id ?? null
+  const displayProduct: Product | null = (productDetail as Product) || product || null
+  const isProductFavorite = productId ? isFavorite(productId) : false
 
   useEffect(() => {
-    if (isOpen && product) {
-      const productId = getProductId(product)
-      if (productId) {
-        fetchProductDetail(productId)
-      }
+    if (isOpen && productId) {
+      fetchProductDetail(productId)
     } else {
       clearDetail()
     }
-  }, [isOpen, product, fetchProductDetail, clearDetail])
+    setQty(1)
+    setImgErrored(false)
+  }, [isOpen, productId, fetchProductDetail, clearDetail])
 
+  const rating = useMemo(() => {
+    if (!displayProduct) return null
+    const avg = Number((displayProduct as any).averageRating || 0)
+    const total = Number((displayProduct as any).totalReviews || 0)
+    if (!avg && !total) return null
+    return { avg, total }
+  }, [displayProduct])
+
+  const formatCOP = (value: number | string) =>
+    new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0,
+    })
+      .format(Number(value || 0))
+      .replace(/^\$/, "")
+
+  const maxQty = Math.max(0, Number(displayProduct?.stock || 0))
+  const canAdd = !!displayProduct && maxQty > 0 && qty > 0
+
+  const inc = () => setQty((q) => Math.min(q + 1, maxQty || 1))
+  const dec = () => setQty((q) => Math.max(1, q - 1))
+
+  const handleToggleFavorite = async () => {
+    if (!productId) return
+    await toggleFavorite(productId)
+  }
+
+  const handleAddToCart = () => {
+    if (!displayProduct || !canAdd) return
+    try {
+      onAddToCart(displayProduct, qty)
+    } catch {
+      for (let i = 0; i < qty; i++) onAddToCart(displayProduct)
+    }
+    onClose()
+  }
+
+  // Guard posterior a los hooks
   if (!isOpen || !product) return null
 
-  // Usar datos del backend si están disponibles, sino usar los del listado
-  const displayProduct = productDetail || product
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header del modal */}
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-800">
-            Detalle del Producto
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[92vh] overflow-y-auto shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b">
+          <div className="flex items-center gap-3">
+            {displayProduct && (
+              <>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                  {displayProduct.brand}
+                </span>
+                <span className="text-sm text-gray-500">{displayProduct.model}</span>
+              </>
+            )}
+            {productDetail?.category && (
+              <span className="text-xs text-gray-600 border border-gray-200 rounded-full px-2 py-0.5">
+                {productDetail.category.name}
+              </span>
+            )}
+          </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full"
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label="Cerrar"
           >
-            <X size={24} />
+            <X className="h-5 w-5 text-gray-600" />
           </button>
         </div>
 
-        {/* Contenido del modal */}
+        {/* Body */}
         <div className="p-6">
-          {/* Estado de loading */}
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <div className="flex items-center gap-3 text-blue-600">
-                <Loader2
-                  className="animate-spin"
-                  size={24}
-                />
-                <span>Cargando detalle del producto...</span>
+              <div className="flex items-center gap-3 text-red-600">
+                <Loader2 className="animate-spin" size={22} />
+                <span className="font-medium">Cargando detalle del producto...</span>
               </div>
             </div>
           )}
 
-          {/* Estado de error */}
-          {error && !loading && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-2 text-red-600">
-                <AlertCircle size={20} />
-                <span className="font-medium">Error al cargar el detalle</span>
+          {!!error && !loading && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-5">
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertCircle size={18} />
+                <span className="font-semibold">No pudimos cargar el detalle</span>
               </div>
-              <p className="text-red-600 text-sm mt-1">{error}</p>
-              <p className="text-gray-600 text-sm mt-2">
-                Mostrando información básica del producto.
+              <p className="text-red-700/90 text-sm mt-1">
+                Se muestra la información básica mientras tanto.
               </p>
             </div>
           )}
 
-          {/* Contenido principal */}
-          {!loading && (
+          {!loading && displayProduct && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Imagen del producto */}
-              <div className="space-y-4">
-                <div className="relative">
-                  <Image
-                    src={displayProduct.imgUrl}
-                    alt={displayProduct.name}
-                    width={400}
-                    height={400}
-                    className="w-full h-96 object-cover rounded-lg"
-                    onError={(e) => {
-                      e.currentTarget.src = "https://picsum.photos/400/400"
-                    }}
-                  />
+              {/* Imagen */}
+              <div>
+                <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white">
+                  {imgErrored ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src="https://picsum.photos/800/800"
+                      alt={displayProduct.name}
+                      className="w-full h-[420px] object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={displayProduct.imgUrl}
+                      alt={displayProduct.name}
+                      width={800}
+                      height={800}
+                      className="w-full h-[420px] object-cover"
+                      onError={() => setImgErrored(true)}
+                    />
+                  )}
+
+                  {/* stock pill */}
                   <div
-                    className={`absolute top-4 left-4 px-3 py-1 rounded-full text-sm font-bold ${
+                    className={`absolute top-4 left-4 px-3 py-1 rounded-full text-xs font-bold ${
                       displayProduct.stock > 0
                         ? "bg-green-500 text-white"
-                        : "bg-red-500 text-white"
+                        : "bg-gray-400 text-white"
                     }`}
                   >
                     {displayProduct.stock > 0
                       ? `Stock: ${displayProduct.stock}`
-                      : "Sin Stock"}
+                      : "Sin stock"}
                   </div>
 
-                  {/* ✅ NUEVO: Botón de favorito en la imagen */}
+                  {/* favorito */}
                   <button
                     onClick={handleToggleFavorite}
-                    disabled={favoritesLoading}
-                    className={`absolute top-4 right-4 p-3 rounded-full transition-all duration-300 ${
+                    disabled={favoritesLoading || !productId}
+                    className={`absolute top-4 right-4 p-3 rounded-full backdrop-blur-sm transition-all ${
                       isProductFavorite
-                        ? "bg-red-500 text-white shadow-lg"
-                        : "bg-white/80 text-gray-600 hover:bg-red-500 hover:text-white"
-                    } backdrop-blur-sm ${
-                      favoritesLoading ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
+                        ? "bg-red-600 text-white shadow-md"
+                        : "bg-white/85 text-gray-700 hover:bg-red-600 hover:text-white"
+                    } ${favoritesLoading ? "opacity-60 cursor-not-allowed" : ""}`}
+                    aria-label="Favorito"
                   >
                     {favoritesLoading ? (
-                      <Loader2
-                        size={20}
-                        className="animate-spin"
-                      />
+                      <Loader2 size={18} className="animate-spin" />
                     ) : (
-                      <Heart
-                        size={20}
-                        fill={isProductFavorite ? "currentColor" : "none"}
-                      />
+                      <Heart size={18} fill={isProductFavorite ? "currentColor" : "none"} />
                     )}
                   </button>
+                </div>
+
+                <div className="mt-3 flex items-center gap-2 text-xs text-gray-600">
+                  <Shield className="h-4 w-4 text-black" />
+                  Garantía y calidad certificada
                 </div>
               </div>
 
-              {/* Información del producto */}
-              <div className="space-y-6">
-                {/* Título y marca */}
+              {/* Info */}
+              <div className="flex flex-col gap-6">
                 <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                      {displayProduct.brand}
+                  <h1 className="text-2xl font-bold text-black">{displayProduct.name}</h1>
+                  <div className="mt-2 flex items-center gap-3">
+                    <span className="text-3xl font-extrabold text-red-600">
+                      ${formatCOP(displayProduct.price)}
                     </span>
-                    <span className="text-gray-500 text-sm">
-                      {displayProduct.model}
-                    </span>
-                    {/* Mostrar categoría si está disponible del backend */}
-                    {productDetail?.category && (
-                      <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
-                        {productDetail.category.name}
+                    {rating && (
+                      <span className="text-sm text-gray-600">
+                        {rating.avg.toFixed(1)} ★ ({rating.total})
                       </span>
                     )}
                   </div>
-                  <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                    {displayProduct.name}
-                  </h1>
-                  <p className="text-4xl font-bold text-blue-600">
-                    ${displayProduct.price.toLocaleString()}
+                  <p className="mt-2 text-sm text-gray-600">
+                    {productDetail?.description ||
+                      `${displayProduct.brand} ${displayProduct.model} • ${displayProduct.year} • Motor ${displayProduct.engine}`}
                   </p>
                 </div>
 
-                {/* Especificaciones técnicas */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                    Especificaciones Técnicas
-                  </h3>
-                  <div className="grid grid-cols-1 gap-3">
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h3 className="text-sm font-semibold text-black mb-3">Especificaciones</h3>
+                  <dl className="grid grid-cols-1 gap-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Año:</span>
-                      <span className="font-semibold">
-                        {displayProduct.year}
-                      </span>
+                      <dt className="text-gray-600">Marca</dt>
+                      <dd className="font-medium text-black">{displayProduct.brand}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Motor:</span>
-                      <span className="font-semibold">
-                        {displayProduct.engine}
-                      </span>
+                      <dt className="text-gray-600">Modelo</dt>
+                      <dd className="font-medium text-black">{displayProduct.model}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Modelo:</span>
-                      <span className="font-semibold">
-                        {displayProduct.model}
-                      </span>
+                      <dt className="text-gray-600">Año</dt>
+                      <dd className="font-medium text-black">{displayProduct.year}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Disponibilidad:</span>
-                      <span
-                        className={`font-semibold ${
-                          displayProduct.stock > 0
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {displayProduct.stock > 0
-                          ? `${displayProduct.stock} unidades`
-                          : "Agotado"}
-                      </span>
+                      <dt className="text-gray-600">Motor</dt>
+                      <dd className="font-medium text-black">{displayProduct.engine}</dd>
                     </div>
-                    {/* Mostrar categoría en especificaciones si está disponible */}
                     {productDetail?.category && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Categoría:</span>
-                        <span className="font-semibold">
+                        <dt className="text-gray-600">Categoría</dt>
+                        <dd className="font-medium text-black">
                           {productDetail.category.name}
-                        </span>
+                        </dd>
                       </div>
                     )}
-                  </div>
+                  </dl>
                 </div>
 
-                {/* Descripción - Del backend si está disponible */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                    Descripción
-                  </h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    {productDetail?.description ||
-                      `${displayProduct.name} de ${displayProduct.brand} modelo ${displayProduct.model} del año ${displayProduct.year}. 
-                      Equipado con motor ${displayProduct.engine}, este vehículo ofrece una excelente combinación de rendimiento, 
-                      confiabilidad y eficiencia. Ideal para quienes buscan calidad y durabilidad en cada kilómetro.`}
-                  </p>
-                </div>
-
-                {/* Información adicional del backend */}
-                {productDetail?.orderDetails &&
-                  productDetail.orderDetails.length > 0 && (
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <h3 className="text-lg font-semibold text-blue-800 mb-2">
-                        Información Adicional
-                      </h3>
-                      <p className="text-blue-700 text-sm">
-                        Este producto ha sido pedido{" "}
-                        {productDetail.orderDetails.length} vez(es)
-                      </p>
-                    </div>
-                  )}
-
-                {/* Acciones */}
+                {/* Cantidad & acciones — reemplazado por tu bloque (adaptado) */}
                 <div className="space-y-3">
+                  <div className="flex items-center gap-3 flex-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      Cantidad:
+                    </span>
+                    <div className="flex items-center border border-gray-300 rounded-lg">
+                      <button
+                        onClick={dec}
+                        disabled={qty <= 1}
+                        className="p-2 hover:bg-gray-100 transition-colors rounded-l-lg disabled:opacity-50"
+                        aria-label="Disminuir cantidad"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="px-4 py-2 font-semibold min-w-[3rem] text-center">
+                        {qty}
+                      </span>
+                      <button
+                        onClick={inc}
+                        disabled={maxQty !== 0 && qty >= maxQty}
+                        className="p-2 hover:bg-gray-100 transition-colors rounded-r-lg disabled:opacity-50"
+                        aria-label="Aumentar cantidad"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {!!maxQty && (
+                      <span className="text-xs text-gray-500">({maxQty} disp.)</span>
+                    )}
+                  </div>
+
                   <button
-                    onClick={() => {
-                      onAddToCart(product) // Usar el producto original para el carrito
-                      onClose()
-                    }}
-                    disabled={displayProduct.stock === 0}
+                    onClick={handleAddToCart}
+                    disabled={!canAdd}
                     className={`w-full py-3 px-6 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
-                      displayProduct.stock > 0
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                      canAdd
+                        ? "bg-black text-white hover:bg-gray-900"
                         : "bg-gray-300 text-gray-500 cursor-not-allowed"
                     }`}
                   >
-                    {displayProduct.stock > 0
-                      ? "Agregar al Carrito"
-                      : "No Disponible"}
+                    Agregar al Carrito
                   </button>
 
-                  {/* ✅ ACTUALIZADO: Botón de favoritos con estado del backend */}
                   <button
                     onClick={handleToggleFavorite}
-                    disabled={favoritesLoading}
+                    disabled={favoritesLoading || !productId}
                     className={`w-full py-3 px-6 border-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
                       isProductFavorite
-                        ? "border-red-500 bg-red-500 text-white hover:bg-red-600"
-                        : "border-red-500 text-red-500 hover:bg-red-50"
-                    } ${
-                      favoritesLoading ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
+                        ? "border-red-600 bg-red-600 text-white hover:bg-red-700"
+                        : "border-red-600 text-red-600 hover:bg-red-50"
+                    } ${favoritesLoading ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
                     {favoritesLoading ? (
-                      <Loader2
-                        size={20}
-                        className="animate-spin"
-                      />
+                      <Loader2 size={18} className="animate-spin" />
                     ) : (
-                      <Heart
-                        size={20}
-                        fill={isProductFavorite ? "currentColor" : "none"}
-                      />
+                      <Heart size={18} fill={isProductFavorite ? "currentColor" : "none"} />
                     )}
                     {favoritesLoading
                       ? "Procesando..."
@@ -329,6 +315,21 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
             </div>
           )}
+        </div>
+
+        {/* Footer del modal */}
+        <div className="px-6 py-4 border-t bg-white/60 backdrop-blur">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">
+              Envíos a todo el país • Pagos seguros • Soporte postventa
+            </span>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-md text-sm font-semibold border border-gray-300 hover:bg-gray-50"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
     </div>
